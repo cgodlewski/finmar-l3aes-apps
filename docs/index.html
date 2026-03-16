@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinMarché Terminal v3 — L3 AES</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{--bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--bg4:#2d333b;--border:#30363d;--border2:#444c56;--text:#e6edf3;--text2:#8b949e;--text3:#6e7681;--green:#3fb950;--green2:#238636;--green-dim:#1a3a1f;--red:#f85149;--red-dim:#3a1a1a;--blue:#58a6ff;--blue2:#1f6feb;--blue-dim:#0d2137;--amber:#e3b341;--amber-dim:#3a2a0a;--purple:#bc8cff;--purple-dim:#2d1f4a;--cyan:#39d353;--mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1rem;display:flex;align-items:center;gap:1.5rem;height:48px;flex-shrink:0}
+.logo{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--blue);letter-spacing:.05em;white-space:nowrap}
+.logo span{color:var(--text3)}
+.ticker-strip{flex:1;overflow:hidden;display:flex;align-items:center}
+.ticker-inner{display:flex;gap:2rem;animation:ticker 60s linear infinite;white-space:nowrap}
+.ticker-inner:hover{animation-play-state:paused}
+@keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.tick-item{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;cursor:pointer;padding:4px 8px;border-radius:4px;transition:background .15s}
+.tick-item:hover{background:var(--bg3)}
+.tick-name{color:var(--text2);font-weight:500}.tick-price{color:var(--text)}.tick-chg.pos{color:var(--green)}.tick-chg.neg{color:var(--red)}
+.mkt-status{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);white-space:nowrap}
+.mkt-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.main{display:flex;flex:1;overflow:hidden}
+.sidebar{width:210px;min-width:210px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
+.sidebar-section{padding:.75rem 0;border-bottom:1px solid var(--border)}
+.sidebar-label{font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;padding:.25rem .75rem .5rem}
+.nav-btn{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:13px;color:var(--text2);cursor:pointer;border-left:2px solid transparent;transition:all .12s;border:none;background:none;width:100%;text-align:left;font-family:var(--sans)}
+.nav-btn:hover{background:var(--bg3);color:var(--text)}
+.nav-btn.active{background:var(--bg3);color:var(--blue);border-left-color:var(--blue);font-weight:500}
+.nav-btn.special{color:var(--amber)}
+.nav-btn.special.active{color:var(--amber);border-left-color:var(--amber)}
+.nav-icon{font-size:13px;width:16px;text-align:center;opacity:.7}
+.stock-grid{padding:.5rem;display:flex;flex-direction:column;gap:2px}
+.stock-btn{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border-radius:4px;cursor:pointer;transition:all .12s;border:1px solid transparent;background:none;width:100%;font-family:var(--sans)}
+.stock-btn:hover{background:var(--bg3)}
+.stock-btn.active{background:var(--blue-dim);border-color:var(--blue2)}
+.stock-ticker{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--blue)}
+.stock-pct{font-family:var(--mono);font-size:10px}.stock-pct.pos{color:var(--green)}.stock-pct.neg{color:var(--red)}
+.content{flex:1;overflow-y:auto;overflow-x:hidden;padding:1.25rem;background:var(--bg)}
+.page{display:none}.page.active{display:block}
+.stock-header{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin-bottom:1rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}
+.sh-name{font-size:18px;font-weight:600;color:var(--text)}.sh-ticker{font-family:var(--mono);font-size:12px;color:var(--text3);margin-top:2px}
+.sh-sector{display:inline-block;font-size:11px;color:var(--amber);background:var(--amber-dim);padding:2px 8px;border-radius:3px;margin-top:4px}
+.sh-price{font-family:var(--mono);font-size:32px;font-weight:500;color:var(--text);text-align:right}
+.sh-change{font-family:var(--mono);font-size:13px;text-align:right;margin-top:2px}.sh-change.pos{color:var(--green)}.sh-change.neg{color:var(--red)}
+.sh-meta{display:flex;gap:1.5rem;margin-top:8px;flex-wrap:wrap}
+.sh-meta-item .ml{color:var(--text3)}.sh-meta-item .mv{color:var(--text2);font-family:var(--mono)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-bottom:1rem}
+.grid4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:.75rem;margin-bottom:1rem}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin-bottom:1rem}
+.card-title{font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.75rem;display:flex;align-items:center;gap:6px}
+.card-title::before{content:'';width:3px;height:14px;background:var(--blue);border-radius:2px;display:inline-block}
+.card-title.amber::before{background:var(--amber)}
+.card-title.purple::before{background:var(--purple)}
+.card-title.green::before{background:var(--green)}
+.metric{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:.875rem 1rem}
+.metric-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.35rem}
+.metric-value{font-family:var(--mono);font-size:20px;font-weight:500;color:var(--text)}
+.metric-value.pos{color:var(--green)}.metric-value.neg{color:var(--red)}.metric-value.blue{color:var(--blue)}.metric-value.amber{color:var(--amber)}.metric-value.purple{color:var(--purple)}
+.metric-sub{font-size:11px;color:var(--text3);margin-top:3px}
+.formula{background:var(--bg3);border-left:3px solid var(--blue);padding:.6rem .875rem;border-radius:0 4px 4px 0;font-family:var(--mono);font-size:12px;color:var(--text2);margin:.625rem 0;line-height:1.6}
+.formula.amber{border-left-color:var(--amber)}.formula.green{border-left-color:var(--green)}.formula.purple{border-left-color:var(--purple)}
+.info{background:var(--blue-dim);border:1px solid var(--blue2);border-radius:6px;padding:.625rem .875rem;font-size:12px;color:#8ec8ff;margin-bottom:.875rem;line-height:1.5}
+.info.amber{background:var(--amber-dim);border-color:#6b5000;color:var(--amber)}
+.info.green{background:var(--green-dim);border-color:var(--green2);color:#7ee09a}
+.info.purple{background:var(--purple-dim);border-color:#6b3fa0;color:#d4b8ff}
+label{font-size:12px;color:var(--text3);display:block;margin-bottom:3px}
+input[type=number],input[type=text],select{width:100%;padding:6px 10px;font-size:13px;font-family:var(--mono);background:var(--bg3);border:1px solid var(--border2);border-radius:4px;color:var(--text);margin-bottom:.625rem;outline:none;transition:border-color .15s}
+input[type=number]:focus,input[type=text]:focus,select:focus{border-color:var(--blue)}
+select option{background:var(--bg3)}
+input[type=range]{width:100%;accent-color:var(--blue);margin-bottom:.25rem}
+.btn{padding:7px 16px;border-radius:4px;font-size:13px;font-weight:500;cursor:pointer;transition:all .12s;font-family:var(--sans);border:none}
+.btn-primary{background:var(--blue2);color:#fff}.btn-primary:hover{background:var(--blue)}
+.btn-amber{background:#6b5000;color:var(--amber)}.btn-amber:hover{background:#855f00}
+.btn-purple{background:#4a2a80;color:#d4b8ff}.btn-purple:hover{background:#5a3a90}
+.btn-green{background:var(--green2);color:#fff}.btn-green:hover{background:#2ea043}
+.btn-secondary{background:var(--bg3);color:var(--text2);border:1px solid var(--border2)}.btn-secondary:hover{background:var(--bg4);color:var(--text)}
+.result-table{margin-top:.75rem}
+.result-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px}
+.result-row:last-child{border-bottom:none;font-weight:600}
+.result-label{color:var(--text2)}.result-val{font-family:var(--mono);color:var(--text)}
+.result-val.pos{color:var(--green)}.result-val.neg{color:var(--red)}.result-val.blue{color:var(--blue)}.result-val.amber{color:var(--amber)}
+.tab-bar{display:flex;gap:.25rem;margin-bottom:1rem;border-bottom:1px solid var(--border);padding-bottom:0;flex-wrap:wrap}
+.tab{padding:7px 14px;font-size:12px;font-weight:500;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s;background:none;border-top:none;border-left:none;border-right:none;font-family:var(--sans)}
+.tab:hover{color:var(--text2)}.tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.tab.amber.active{color:var(--amber);border-bottom-color:var(--amber)}
+.chart-wrap{position:relative;width:100%}
+table.dt{width:100%;border-collapse:collapse;font-size:13px}
+table.dt th{background:var(--bg3);padding:8px 10px;text-align:left;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);border-bottom:1px solid var(--border)}
+table.dt td{padding:7px 10px;border-bottom:1px solid var(--border);color:var(--text2);font-family:var(--mono);font-size:12px}
+table.dt tr:hover td{background:var(--bg3)}
+table.dt tr:last-child td{border-bottom:none}
+.badge{display:inline-block;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:600;letter-spacing:.04em}
+.badge-green{background:var(--green-dim);color:var(--green)}.badge-red{background:var(--red-dim);color:var(--red)}.badge-blue{background:var(--blue-dim);color:var(--blue)}.badge-amber{background:var(--amber-dim);color:var(--amber)}.badge-purple{background:var(--purple-dim);color:var(--purple)}
+.page-title{font-size:16px;font-weight:600;color:var(--text);margin-bottom:.25rem}
+.page-sub{font-size:13px;color:var(--text3);margin-bottom:1.25rem}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem}
+/* MONETAIRE */
+.bce-rate{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:var(--bg2)}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}::-webkit-scrollbar-thumb:hover{background:var(--border2)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="logo">FIN<span>MARCHÉ</span> <span style="color:var(--text3);font-size:11px">/ Terminal Pédagogique L3 AES · v3</span></div>
+  <div class="ticker-strip"><div class="ticker-inner" id="tickerInner"></div></div>
+  <div class="mkt-status"><div class="mkt-dot"></div><span>Snapshot Mars 2026</span></div>
+</div>
+<div class="main">
+<div class="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-label">Marchés</div>
+    <button class="nav-btn active" onclick="showPage('dashboard',this)"><span class="nav-icon">◈</span>Vue d'ensemble</button>
+    <button class="nav-btn" onclick="showPage('actions',this)"><span class="nav-icon">↑</span>Actions</button>
+    <button class="nav-btn" onclick="showPage('obligations',this)"><span class="nav-icon">◉</span>Obligations</button>
+    <button class="nav-btn special" onclick="showPage('monetaire',this)"><span class="nav-icon">€</span>Marché monétaire</button>
+    <button class="nav-btn" onclick="showPage('derives',this)"><span class="nav-icon">⇄</span>Dérivés</button>
+    <button class="nav-btn" onclick="showPage('risques',this)"><span class="nav-icon">▦</span>VaR &amp; Risques</button>
+    <button class="nav-btn" onclick="showPage('portefeuille',this)"><span class="nav-icon">◎</span>Portefeuille</button>
+    <button class="nav-btn" onclick="showPage('carnet',this)"><span class="nav-icon">≡</span>Carnet d'ordres</button>
+  </div>
+  <div class="sidebar-section" style="flex:1">
+    <div class="sidebar-label">Titre actif</div>
+    <div class="stock-grid" id="stockGrid"></div>
+  </div>
+  <div style="padding:.75rem;border-top:1px solid var(--border)">
+    <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">Snapshot : Mars 2026</div>
+    <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:2px">LSEG / Yahoo Finance</div>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px">Conception pedagogique et developpement : C. Godlewski</div>
+  </div>
+</div>
+
+<div class="content" id="mainContent">
+
+<!-- ═══════════════ DASHBOARD ═══════════════ -->
+<div class="page active" id="page-dashboard">
+  <div class="page-title">Tableau de bord — Finance de Marché</div>
+  <div class="page-sub">Sélectionnez un titre dans le panneau gauche pour alimenter tous les modules</div>
+  <div class="grid4" id="dash-metrics"></div>
+  <div class="grid2">
+    <div class="card"><div class="card-title">Cours historique (100 jours)</div><div class="chart-wrap" style="height:180px"><canvas id="dashPriceChart"></canvas></div></div>
+    <div class="card"><div class="card-title">Distribution des rentabilités journalières</div><div class="chart-wrap" style="height:180px"><canvas id="dashReturnChart"></canvas></div></div>
+  </div>
+  <div class="grid3" id="dash-ratios"></div>
+  <div class="card"><div class="card-title">Courbe des taux OAT — Mars 2026</div><div class="chart-wrap" style="height:150px"><canvas id="dashYieldChart"></canvas></div>
+    <div style="display:flex;gap:2rem;margin-top:.75rem;flex-wrap:wrap">
+      <div><span style="font-size:11px;color:var(--text3)">Euribor 3M </span><span style="font-family:var(--mono);color:var(--amber)">3.85%</span></div>
+      <div><span style="font-size:11px;color:var(--text3)">Euribor 6M </span><span style="font-family:var(--mono);color:var(--amber)">3.72%</span></div>
+      <div><span style="font-size:11px;color:var(--text3)">€STR </span><span style="font-family:var(--mono);color:var(--amber)">3.65%</span></div>
+      <div><span style="font-size:11px;color:var(--text3)">OAT 10Y </span><span style="font-family:var(--mono);color:var(--blue)">3.42%</span></div>
+      <div><span style="font-size:11px;color:var(--text3)">Taux refi BCE </span><span style="font-family:var(--mono);color:var(--green)">3.40%</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ ACTIONS ═══════════════ -->
+<div class="page" id="page-actions">
+  <div id="hdr-actions"></div>
+  <div class="tab-bar">
+    <button class="tab active" onclick="showTab('act','bpa',this)">BPA / DPA / PER</button>
+    <button class="tab" onclick="showTab('act','dps',this)">Capital &amp; DPS</button>
+    <button class="tab" onclick="showTab('act','gs',this)">Gordon-Shapiro</button>
+  </div>
+  <div id="act-bpa">
+    <div class="info" id="bpa-info">Sélectionnez un titre pour pré-remplir les données réelles.</div>
+    <div class="card"><div class="card-title">BPA · DPA · Rendement · PER</div>
+      <div class="formula">BPA = RN / N &nbsp;|&nbsp; DPA = Div totaux / N &nbsp;|&nbsp; Rend = DPA / Cours &nbsp;|&nbsp; PER = Cours / BPA</div>
+      <div class="two-col">
+        <div><label>Résultat net (M€)</label><input type="number" id="bpa_rn" value="3613"><label>Dividendes totaux (M€)</label><input type="number" id="bpa_div" value="1421"></div>
+        <div><label>Nombre d'actions (milliers)</label><input type="number" id="bpa_n" value="789761"><label>Cours (€)</label><input type="number" id="bpa_cours" value="154.78" step="0.01"></div>
+      </div>
+      <button class="btn btn-primary" onclick="calcBPA()">Calculer</button>
+      <div id="res-bpa" style="display:none" class="result-table"></div>
+    </div>
+    <div class="card"><div class="card-title">Comparatif PER — Titres CAC40</div><div class="chart-wrap" style="height:210px"><canvas id="perChart"></canvas></div></div>
+  </div>
+  <div id="act-dps" style="display:none">
+    <div class="card"><div class="card-title">Droit de souscription (DPS)</div>
+      <div class="formula">VM ex-droit = (N·CA + n·PS)/(N+n) &nbsp;|&nbsp; DPS = CA − VM ex-droit</div>
+      <div class="two-col">
+        <div><label>N actions anciennes</label><input type="number" id="dps_N" value="1365406723"><label>n actions nouvelles</label><input type="number" id="dps_n" value="195058103"><label>VN (€)</label><input type="number" id="dps_VN" value="10" step="0.01"></div>
+        <div><label>Cours CA (€)</label><input type="number" id="dps_CA" value="48" step="0.01"><label>Prix souscription PS (€)</label><input type="number" id="dps_PS" value="50" step="0.01"></div>
+      </div>
+      <button class="btn btn-primary" onclick="calcDPS()">Calculer</button>
+      <div id="res-dps" style="display:none" class="result-table"></div>
+    </div>
+    <div class="card"><div class="card-title">Impact dilutif — Avant / Après</div><div class="chart-wrap" style="height:190px"><canvas id="dpsChart"></canvas></div></div>
+  </div>
+  <div id="act-gs" style="display:none">
+    <div class="card"><div class="card-title">Gordon-Shapiro — Valeur de l'action &amp; variantes</div>
+      <div class="formula">P₀ = D/(r−g) &nbsp;|&nbsp; r = D/P₀ + g &nbsp;|&nbsp; D = P₀ × (r−g)</div>
+      <div class="info">Trois variantes selon la session : trouver P₀, trouver r implicite, ou trouver D anticipé.</div>
+      <div class="two-col">
+        <div>
+          <label>Mode de calcul</label>
+          <select id="gs_mode" onchange="updateGSMode()">
+            <option value="P">Calculer P₀ (trouver la valeur)</option>
+            <option value="r">Calculer r implicite (trouver le taux)</option>
+            <option value="D">Calculer D anticipé (trouver le dividende)</option>
+          </select>
+          <label>Dividende D (€)</label><input type="number" id="gs_D" value="1.15" step="0.01">
+          <label>Taux requis r (%)</label><input type="number" id="gs_r" value="6.25" step="0.01">
+        </div>
+        <div>
+          <label>Taux croissance g (%)</label><input type="number" id="gs_g" value="1.75" step="0.01">
+          <label>Cours P₀ (€) <span style="color:var(--text3)">(pour mode r ou D)</span></label><input type="number" id="gs_P" value="46" step="0.01">
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="calcGS()">Calculer</button>
+      <div id="res-gs" style="display:none" class="result-table"></div>
+    </div>
+    <div class="card"><div class="card-title">Sensibilité P₀ à g (pour r et D donnés)</div><div class="chart-wrap" style="height:190px"><canvas id="gsChart"></canvas></div></div>
+  </div>
+</div>
+
+<!-- ═══════════════ OBLIGATIONS ═══════════════ -->
+<div class="page" id="page-obligations">
+  <div class="tab-bar">
+    <button class="tab active" onclick="showTab('obl','cc',this)">Coupon couru &amp; Prix</button>
+    <button class="tab" onclick="showTab('obl','tra',this)">TRA &amp; Prix de marché</button>
+    <button class="tab" onclick="showTab('obl','dur',this)">Duration &amp; Sensibilité</button>
+    <button class="tab" onclick="showTab('obl','courbe',this)">Courbe des taux &amp; Forward</button>
+    <button class="tab" onclick="showTab('obl','oat',this)">Adjudication OAT</button>
+  </div>
+  <div id="obl-cc">
+    <div class="card"><div class="card-title">Coupon couru &amp; Prix d'achat</div>
+      <div class="formula">CC = Taux × VN × (jours/365) &nbsp;|&nbsp; Prix plein = Cours% × VN + CC</div>
+      <div class="two-col">
+        <div><label>Taux nominal %</label><input type="number" id="cc_t" value="3.75" step="0.01"><label>VN (€)</label><input type="number" id="cc_vn" value="1000" step="1"><label>Jours depuis dernier coupon</label><input type="number" id="cc_j" value="71" step="1"></div>
+        <div><label>Cours coté % (pied de coupon)</label><input type="number" id="cc_cours" value="97.85" step="0.01"></div>
+      </div>
+      <button class="btn btn-primary" onclick="calcCC()">Calculer</button>
+      <div id="res-cc" style="display:none" class="result-table"></div>
+      <div class="info" style="margin-top:.75rem">Exemple Session 2 : OAT 3.75% | Cours 97.85% ou 113.25% | Dernier coupon 13/01/2025 | Date 25/03/2025 → 71 jours courus</div>
+    </div>
+  </div>
+  <div id="obl-tra" style="display:none">
+    <div class="card"><div class="card-title">Taux de Rendement Actuariel (TRA) — Obligation in fine</div>
+      <div class="formula">P = Σ [C/(1+r)ᵗ] + VR/(1+r)ⁿ — résolution par dichotomie</div>
+      <div class="two-col">
+        <div><label>VN (€)</label><input type="number" id="tra_vn" value="1000"><label>Taux nominal %</label><input type="number" id="tra_t" value="3.25" step="0.01"><label>Maturité résiduelle (ans)</label><input type="number" id="tra_n" value="2" step="1"></div>
+        <div><label>Cours coté %</label><input type="number" id="tra_cours" value="101" step="0.01"><label>VR (% VN, généralement 100)</label><input type="number" id="tra_vr" value="100" step="0.01"></div>
+      </div>
+      <button class="btn btn-primary" onclick="calcTRA()">Calculer TRA</button>
+      <div id="res-tra" style="display:none" class="result-table"></div>
+    </div>
+    <div class="card"><div class="card-title">Relation prix / taux (obligation sélectionnée)</div><div class="chart-wrap" style="height:210px"><canvas id="obligPriceChart"></canvas></div></div>
+  </div>
+  <div id="obl-dur" style="display:none">
+    <div class="card"><div class="card-title">Duration &amp; Sensibilité</div>
+      <div class="formula">D = Σ [t·PV(Ct)] / P &nbsp;|&nbsp; Sens = −D/(1+r) &nbsp;|&nbsp; ΔP ≈ Sens·P·Δr</div>
+      <div class="two-col">
+        <div><label>VN (€)</label><input type="number" id="dur_vn" value="1000"><label>Taux nominal %</label><input type="number" id="dur_t" value="4" step="0.01"><label>Maturité (ans)</label><input type="number" id="dur_n" value="6" step="1" min="1" max="30"></div>
+        <div><label>Yield %</label><input type="number" id="dur_y" value="4" step="0.01"><label>Δr (points de base)</label><input type="number" id="dur_dr" value="100" step="10"></div>
+      </div>
+      <button class="btn btn-primary" onclick="calcDuration()">Calculer</button>
+      <div id="res-dur" style="display:none" class="result-table"></div>
+      <div class="info" style="margin-top:.75rem">Session 1 Ex.7 : VN=1000€, T=6 ans, i=4%, r=4%</div>
+    </div>
+    <div class="card"><div class="card-title">Prix vs taux — différentes maturités</div><div class="chart-wrap" style="height:210px"><canvas id="durationChart"></canvas></div></div>
+  </div>
+  <div id="obl-courbe" style="display:none">
+    <div class="card"><div class="card-title">Taux forward implicite &amp; courbe des taux</div>
+      <div class="formula amber">f(T₁,T₂) = [(1+r₂)^T₂ / (1+r₁)^T₁]^(1/(T₂−T₁)) − 1</div>
+      <div class="two-col">
+        <div><label>Taux spot r₁ (%) pour T₁ ans</label><input type="number" id="fw_r1" value="0.415" step="0.001"><label>T₁ (années)</label><input type="number" id="fw_T1" value="1" step="0.5"></div>
+        <div><label>Taux spot r₂ (%) pour T₂ ans</label><input type="number" id="fw_r2" value="0.530" step="0.001"><label>T₂ (années)</label><input type="number" id="fw_T2" value="2" step="0.5"></div>
+      </div>
+      <button class="btn btn-primary" onclick="calcForward()">Calculer f(T₁,T₂)</button>
+      <div id="res-fw" style="display:none" class="result-table"></div>
+      <div class="info" style="margin-top:.75rem">S1 Ex.8 : r(0,1)=0.145%, r(0,2)=0.350% → f(1,1)=? &nbsp;|&nbsp; S2 Ex.7 : r(0,1)=0.415%, r(0,2)=0.530% → f(1,1)=?</div>
+    </div>
+    <div class="card"><div class="card-title">Courbe OAT + choc de taux</div>
+      <div class="chart-wrap" style="height:200px"><canvas id="yieldCurveChart"></canvas></div>
+      <label style="margin-top:.75rem">Choc parallèle : <span id="shockVal" style="color:var(--amber);font-family:var(--mono)">0 bp</span></label>
+      <input type="range" id="yieldShock" min="-200" max="200" value="0" step="10" oninput="updateYieldShock(this.value)">
+    </div>
+  </div>
+  <div id="obl-oat" style="display:none">
+    <div class="card"><div class="card-title">Adjudication OAT — Mécanisme hollandais</div>
+      <div class="info">L'AFT sert les SVT aux prix proposés, du plus élevé au plus bas, jusqu'à épuisement du montant cible.</div>
+      <div style="max-width:220px"><label>Montant cible AFT (M€)</label><input type="number" id="oat_m" value="7200" step="100"></div>
+      <button class="btn btn-primary" onclick="calcOAT()">Simuler</button>
+      <table class="dt" style="margin-top:1rem"><thead><tr><th>SVT</th><th>Prix (%)</th><th>Montant (M€)</th><th>Cumulé (M€)</th><th>Taux approx.</th><th>Statut</th></tr></thead><tbody id="oat-tbody"></tbody></table>
+      <div id="res-oat" style="display:none;margin-top:.75rem" class="result-table"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ MARCHÉ MONÉTAIRE ═══════════════ -->
+<div class="page" id="page-monetaire">
+  <div class="page-title" style="color:var(--amber)">Marché monétaire</div>
+  <div class="page-sub">Instruments, taux de référence, politique monétaire BCE</div>
+  <div class="tab-bar">
+    <button class="tab amber active" onclick="showTab('mon','taux',this)">Taux &amp; BCE</button>
+    <button class="tab amber" onclick="showTab('mon','instruments',this)">Instruments (TCN)</button>
+    <button class="tab amber" onclick="showTab('mon','calculs',this)">Applications numériques</button>
+    <button class="tab amber" onclick="showTab('mon','repo',this)">Pensions (Repo)</button>
+  </div>
+
+  <div id="mon-taux">
+    <div class="grid4">
+      <div class="metric"><div class="metric-label">Taux refi BCE</div><div class="metric-value amber">3.40%</div><div class="metric-sub">Opérations principales</div></div>
+      <div class="metric"><div class="metric-label">Facilité prêt marginal</div><div class="metric-value amber">3.65%</div><div class="metric-sub">Emprunt overnight BCE</div></div>
+      <div class="metric"><div class="metric-label">Facilité de dépôt</div><div class="metric-value amber">3.25%</div><div class="metric-sub">Dépôt overnight BCE</div></div>
+      <div class="metric"><div class="metric-label">€STR</div><div class="metric-value amber">3.65%</div><div class="metric-sub">Remplace EONIA</div></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><div class="card-title amber">Taux Euribor (snapshot Mars 2026)</div>
+        <table class="dt"><thead><tr><th>Maturité</th><th>Taux (%)</th><th>Vs. refi</th><th>Usage typique</th></tr></thead>
+        <tbody>
+          <tr><td>1 semaine</td><td>3.68%</td><td>+28bp</td><td>Prêts interbancaires CT</td></tr>
+          <tr><td>1 mois</td><td>3.74%</td><td>+34bp</td><td>Référence taux variables</td></tr>
+          <tr><td>3 mois</td><td>3.85%</td><td>+45bp</td><td>FRA 3×6, crédits court terme</td></tr>
+          <tr><td>6 mois</td><td>3.72%</td><td>+32bp</td><td>FRA 6×12, swaps</td></tr>
+          <tr><td>12 mois</td><td>3.58%</td><td>+18bp</td><td>Crédits à taux variable</td></tr>
+        </tbody></table>
+      </div>
+      <div class="card"><div class="card-title amber">Courbe Euribor — Structure des taux CT</div>
+        <div class="chart-wrap" style="height:200px"><canvas id="euriborChart"></canvas></div>
+      </div>
+    </div>
+    <div class="card"><div class="card-title amber">Les 3 taux directeurs BCE — Rôles et mécanismes</div>
+      <table class="dt"><thead><tr><th>Taux directeur</th><th>Valeur</th><th>Rôle</th><th>Mécanisme</th></tr></thead>
+      <tbody>
+        <tr><td>Taux refi</td><td style="color:var(--amber)">3.40%</td><td>Plancher du coût de refinancement bancaire</td><td>Banques empruntent à la BCE via appels d'offres hebdomadaires (MRO)</td></tr>
+        <tr><td>Facilité de prêt marginal</td><td style="color:var(--amber)">3.65%</td><td>Plafond — coût maximal du refinancement overnight</td><td>Banques empruntent à la BCE sans limite en dernier recours</td></tr>
+        <tr><td>Facilité de dépôt</td><td style="color:var(--amber)">3.25%</td><td>Plancher — rémunération des excédents de liquidité</td><td>Banques déposent leurs excédents auprès de la BCE overnight</td></tr>
+      </tbody></table>
+      <div class="info amber" style="margin-top:.75rem">Le couloir formé par les 3 taux directeurs encadre les taux interbancaires (€STR, Euribor). L'€STR se positionne proche de la facilité de dépôt.</div>
+    </div>
+  </div>
+
+  <div id="mon-instruments" style="display:none">
+    <div class="grid2">
+      <div class="card"><div class="card-title amber">Titres de Créances Négociables (TCN)</div>
+        <table class="dt"><thead><tr><th>Instrument</th><th>Émetteur</th><th>Maturité</th><th>Montant min.</th></tr></thead>
+        <tbody>
+          <tr><td>Certificat de Dépôt (CD)</td><td>Banques</td><td>1j — 1 an</td><td>150 000 €</td></tr>
+          <tr><td>Billet de Trésorerie (BT)</td><td>Entreprises</td><td>1j — 1 an</td><td>150 000 €</td></tr>
+          <tr><td>BTF (Bon du Trésor à taux Fixe)</td><td>État français</td><td>3, 6, 12 mois</td><td>—</td></tr>
+          <tr><td>BMTN</td><td>Banques / Entreprises</td><td>&lt; 1 an</td><td>150 000 €</td></tr>
+        </tbody></table>
+      </div>
+      <div class="card"><div class="card-title amber">Caractéristiques des TCN</div>
+        <div class="formula amber">Taux précompté : montant investi = VN / (1 + r × j/360)</div>
+        <div class="formula amber">Taux post-compté : montant remboursé = VN × (1 + r × j/360)</div>
+        <div style="margin-top:.75rem">
+          <div class="bce-rate"><span style="color:var(--text2)">Base de calcul</span><span style="font-family:var(--mono);color:var(--amber)">360 jours</span></div>
+          <div class="bce-rate"><span style="color:var(--text2)">Intérêts CD</span><span style="font-family:var(--mono);color:var(--amber)">Précomptés ou post-comptés</span></div>
+          <div class="bce-rate"><span style="color:var(--text2)">Intérêts BT</span><span style="font-family:var(--mono);color:var(--amber)">Taux fixe ou variable précompté</span></div>
+          <div class="bce-rate"><span style="color:var(--text2)">BTF — adjudication</span><span style="font-family:var(--mono);color:var(--amber)">Hebdomadaire (lundi)</span></div>
+          <div class="bce-rate" style="border:none"><span style="color:var(--text2)">Marché</span><span style="font-family:var(--mono);color:var(--amber)">Gré à gré (OTC)</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card"><div class="card-title amber">Opérations de politique monétaire BCE — Typologie</div>
+      <table class="dt"><thead><tr><th>Opération</th><th>Type</th><th>Fréquence</th><th>Durée</th><th>Objectif</th></tr></thead>
+      <tbody>
+        <tr><td>MRO (Main Refinancing Operations)</td><td>Repo</td><td>Hebdomadaire</td><td>1 semaine</td><td>Refinancement principal des banques</td></tr>
+        <tr><td>LTRO (Long-Term Refinancing Operations)</td><td>Repo</td><td>Mensuelle</td><td>3 mois — 3 ans</td><td>Liquidité long terme</td></tr>
+        <tr><td>Fine tuning</td><td>Repo / Reverse repo</td><td>Ad hoc</td><td>Variable</td><td>Ajustement ponctuel liquidité</td></tr>
+        <tr><td>Structural operations</td><td>Achat/vente titres</td><td>Ad hoc</td><td>Variable</td><td>Modification structurelle liquidité</td></tr>
+      </tbody></table>
+    </div>
+  </div>
+
+  <div id="mon-calculs" style="display:none">
+    <div class="grid2">
+      <div class="card"><div class="card-title amber">Rendement d'un BTF (taux précompté)</div>
+        <div class="formula amber">Taux précompté : r = (VN − Prix) / Prix × (360/j)</div>
+        <div class="formula amber">Montant investi = VN × (1 − r × j/360)</div>
+        <div><label>Valeur nominale VN (€)</label><input type="number" id="btf_vn" value="100000" step="1000">
+        <label>Prix d'émission (€)</label><input type="number" id="btf_prix" value="99500" step="10">
+        <label>Durée (jours)</label><input type="number" id="btf_j" value="91" step="1"></div>
+        <button class="btn btn-amber" onclick="calcBTF()">Calculer le rendement</button>
+        <div id="res-btf" style="display:none" class="result-table"></div>
+      </div>
+      <div class="card"><div class="card-title amber">Taux de pension (Repo)</div>
+        <div class="formula amber">Intérêts repo = Principal × r_repo × j/360</div>
+        <div class="formula amber">Prix de rachat = Prix de cession + Intérêts</div>
+        <div><label>Principal (valeur titres, €)</label><input type="number" id="repo_P" value="10000000" step="100000">
+        <label>Taux repo (%)</label><input type="number" id="repo_r" value="3.85" step="0.01">
+        <label>Durée (jours)</label><input type="number" id="repo_j" value="7" step="1">
+        <label>Décote / Haircut (%)</label><input type="number" id="repo_h" value="2" step="0.1"></div>
+        <button class="btn btn-amber" onclick="calcRepo()">Calculer</button>
+        <div id="res-repo" style="display:none" class="result-table"></div>
+      </div>
+    </div>
+    <div class="card"><div class="card-title amber">Impact d'une décision BCE sur la courbe</div>
+      <div class="info amber">Simulez une variation des taux directeurs et observez l'impact sur l'ensemble de la courbe des taux.</div>
+      <label>Variation du taux directeur (bp) : <span id="bceShockVal" style="color:var(--amber);font-family:var(--mono)">0 bp</span></label>
+      <input type="range" id="bceShock" min="-150" max="150" value="0" step="25" oninput="updateBCEShock(this.value)">
+      <div class="chart-wrap" style="height:200px;margin-top:.75rem"><canvas id="bceImpactChart"></canvas></div>
+      <div id="bce-impact-text" class="result-table" style="margin-top:.5rem"></div>
+    </div>
+  </div>
+
+  <div id="mon-repo" style="display:none">
+    <div class="card"><div class="card-title amber">Mécanisme d'une pension livrée (Repo)</div>
+      <div class="info amber">Un repo = vente ferme de titres avec engagement de rachat à une date et un prix convenus. Le vendeur obtient des liquidités en échange de titres en collatéral.</div>
+      <table class="dt"><thead><tr><th>Étape</th><th>Action vendeur (emprunteur)</th><th>Action acheteur (prêteur)</th><th>Résultat</th></tr></thead>
+      <tbody>
+        <tr><td>J (date initiale)</td><td>Livre les titres (OAT, Bund...)</td><td>Verse le cash (prix de cession)</td><td>Transfert titres → cash</td></tr>
+        <tr><td>J+n (date de rachat)</td><td>Rachète les titres au prix convenu</td><td>Reçoit cash + intérêts repo</td><td>Dénouement de l'opération</td></tr>
+      </tbody></table>
+    </div>
+    <div class="grid2">
+      <div class="card"><div class="card-title amber">Collatéral et haircut</div>
+        <table class="dt"><thead><tr><th>Type de collatéral</th><th>Haircut typique</th><th>Risque</th></tr></thead>
+        <tbody>
+          <tr><td>Dettes souveraines AAA (OAT, Bund)</td><td>0 — 2%</td><td>Très faible</td></tr>
+          <tr><td>Dettes souveraines Investment Grade</td><td>2 — 5%</td><td>Faible</td></tr>
+          <tr><td>Corporate bonds IG</td><td>5 — 10%</td><td>Modéré</td></tr>
+          <tr><td>ABS / MBS</td><td>10 — 25%</td><td>Élevé</td></tr>
+        </tbody></table>
+      </div>
+      <div class="card"><div class="card-title amber">Lien avec les autres marchés</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.8">
+          <div style="padding:5px 0;border-bottom:1px solid var(--border)">Les <span style="color:var(--amber)">FRA</span> et <span style="color:var(--amber)">swaps</span> de taux utilisent l'Euribor comme sous-jacent — taux formé sur le marché interbancaire.</div>
+          <div style="padding:5px 0;border-bottom:1px solid var(--border)">Les <span style="color:var(--amber)">BTF</span> sont le sous-jacent typique des repos BCE (MRO).</div>
+          <div style="padding:5px 0;border-bottom:1px solid var(--border)">La courbe OAT <span style="color:var(--amber)">part du marché monétaire</span> (3M, 6M, 12M) et s'étend sur le long terme.</div>
+          <div style="padding:5px 0">La <span style="color:var(--amber)">VaR</span> d'un portefeuille monétaire est faible grâce à la très faible volatilité des taux CT.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ DÉRIVÉS ═══════════════ -->
+<div class="page" id="page-derives">
+  <div id="hdr-derives"></div>
+  <div class="tab-bar">
+    <button class="tab active" onclick="showTab('der','fra',this)">FRA</button>
+    <button class="tab" onclick="showTab('der','opt',this)">Options</button>
+    <button class="tab" onclick="showTab('der','swap',this)">Swap de taux</button>
+  </div>
+  <div id="der-fra">
+    <div class="grid2">
+      <div class="card"><div class="card-title">FRA — Calcul du règlement</div>
+        <div class="formula">(L−K) × P × (j/360) / (1+L×j/360)</div>
+        <div class="info">L=Euribor réalisé, K=taux FRA, P=principal. Si L&gt;K : vendeur paie acheteur (emprunteur couvert).<br>⚠️ FRA sur placement : sens inversé — si L&lt;K c'est le vendeur qui paie.</div>
+        <div class="two-col">
+          <div><label>Principal (€)</label><input type="number" id="fra_P" value="1500000" step="10000"><label>Taux FRA K (%)</label><input type="number" id="fra_K" value="4.25" step="0.01"></div>
+          <div><label>Euribor réalisé L (%)</label><input type="number" id="fra_L" value="3.25" step="0.01"><label>Durée (jours)</label><input type="number" id="fra_j" value="180" step="1">
+          <label>Type</label><select id="fra_type"><option value="emprunt">Emprunt (acheteur FRA)</option><option value="placement">Placement (vendeur FRA)</option></select></div>
+        </div>
+        <button class="btn btn-primary" onclick="calcFRA()">Calculer</button>
+        <div id="res-fra" style="display:none" class="result-table"></div>
+        <div class="info" style="margin-top:.75rem">S1 Ex.9 : FRA 1.5M€ emprunt 6m dans 3m, K=4.25%, L=3.25% · S2 Ex.8 : FRA 1.5M€ placement 6m dans 6m, K=3.25%, L=3.50%</div>
+      </div>
+      <div class="card"><div class="card-title">Taux forward implicite</div>
+        <div class="formula">f = [(1+r₂)^T₂ / (1+r₁)^T₁]^(1/(T₂−T₁)) − 1</div>
+        <div class="two-col">
+          <div><label>r₁ (%) · T₁ ans</label><input type="number" id="fw2_r1" value="0.145" step="0.001"><input type="number" id="fw2_T1" value="1" step="0.5" style="margin-top:-0.4rem"></div>
+          <div><label>r₂ (%) · T₂ ans</label><input type="number" id="fw2_r2" value="0.350" step="0.001"><input type="number" id="fw2_T2" value="2" step="0.5" style="margin-top:-0.4rem"></div>
+        </div>
+        <button class="btn btn-primary" onclick="calcFw2()">Calculer</button>
+        <div id="res-fw2" style="display:none" class="result-table"></div>
+      </div>
+    </div>
+  </div>
+  <div id="der-opt" style="display:none">
+    <div id="hdr-opt"></div>
+    <div class="card"><div class="card-title">Payoff &amp; Gain net — Option européenne</div>
+      <div class="formula">Call acheteur : max(S−K,0) − prime &nbsp;|&nbsp; Put vendeur : prime − max(K−S,0)</div>
+      <div class="two-col">
+        <div><label>Type</label><select id="opt_type"><option value="call">Call (droit d'achat)</option><option value="put">Put (droit de vente)</option></select>
+        <label>Position</label><select id="opt_pos"><option value="buy">Acheteur (long)</option><option value="sell">Vendeur (short)</option></select>
+        <label>Cours sous-jacent S (€)</label><input type="number" id="opt_S" value="39.25" step="0.01"></div>
+        <div><label>Prix d'exercice K (€)</label><input type="number" id="opt_K" value="37.50" step="0.01"><label>Prime (€)</label><input type="number" id="opt_prime" value="1.55" step="0.01"></div>
+      </div>
+      <button class="btn btn-primary" onclick="calcOption()">Analyser</button>
+      <div id="res-opt" style="display:none" class="result-table"></div>
+      <div class="info" style="margin-top:.75rem">S1 Ex.10 : Call long, prime=1.55€, K=37.50€, S=39.25€ · S2 Ex.9 : Put vendeur (short), prime=7.25€, K=73.50€, S=93.25€</div>
+    </div>
+    <div class="card"><div class="card-title">Profil gains/pertes à l'échéance</div><div class="chart-wrap" style="height:230px"><canvas id="optionChart"></canvas></div></div>
+  </div>
+  <div id="der-swap" style="display:none">
+    <div class="card"><div class="card-title">Swap plain vanilla — Flux semestriels</div>
+      <div class="formula">Flux net payeur fixe (période i) = (Taux fixe − Euribor_i) × Principal / 2</div>
+      <div class="info">Positif → payeur fixe reçoit · Négatif → payeur fixe verse · Multiplier par −1 pour le payeur variable</div>
+      <div class="two-col">
+        <div><label>Principal (€M)</label><input type="number" id="sw_P" value="3750" step="100"><label>Taux fixe (%)</label><input type="number" id="sw_tf" value="3.75" step="0.1">
+        <label>Nb de périodes (semestrielles)</label><input type="number" id="sw_nb" value="10" step="1" min="2" max="20"></div>
+        <div id="sw-euribor-inputs"></div>
+      </div>
+      <button class="btn btn-primary" onclick="buildSwapInputs();calcSwap()">Calculer les flux</button>
+      <div id="res-swap" style="display:none" class="result-table"></div>
+      <div class="info" style="margin-top:.75rem">S1 Ex.11 : P=3750M€, tf=3.75%, Euribor : 3.30/3.35/3.45/3.65/3.55/3.40... → flux T24 et T30<br>S2 Ex.10 : P=2750M€, tf=2.75%, Euribor : 2.30/2.35/2.45/2.65/3.55/4.50/5.40... → flux T18 et T36</div>
+    </div>
+    <div class="card"><div class="card-title">Flux nets par période semestrielle</div><div class="chart-wrap" style="height:200px"><canvas id="swapChart"></canvas></div></div>
+  </div>
+</div>
+
+<!-- ═══════════════ VaR ═══════════════ -->
+<div class="page" id="page-risques">
+  <div id="hdr-var"></div>
+  <div class="tab-bar">
+    <button class="tab active" onclick="showTab('var','vc',this)">Variance-Covariance</button>
+    <button class="tab" onclick="showTab('var','hist',this)">Simulation historique</button>
+    <button class="tab" onclick="showTab('var','conv',this)">Conversions VaR</button>
+  </div>
+  <div id="var-vc">
+    <div class="grid4" id="var-metrics"></div>
+    <div class="card"><div class="card-title">VaR paramétrique</div>
+      <div class="formula">VaR(T,X%) = −(μ − z_X · σ) · W &nbsp;|&nbsp; VaR(N j) = VaR(1 j) · √N</div>
+      <div class="two-col">
+        <div><label>Position W (€)</label><input type="number" id="vc_W" value="3000000" step="100000"><label>μ journalier (%)</label><input type="number" id="vc_mu" value="0" step="0.001"><label>σ journalier (%)</label><input type="number" id="vc_sigma" value="1.4" step="0.001"></div>
+        <div><label>Seuil de confiance</label><select id="vc_conf"><option value="1.6449">95%</option><option value="2.3263">99%</option></select><label>Horizon T (jours ouvrés)</label><input type="number" id="vc_N" value="1" step="1" min="1" max="252"></div>
+      </div>
+      <button class="btn btn-primary" onclick="calcVaR()">Calculer</button>
+      <div id="res-vc" style="display:none" class="result-table"></div>
+      <div class="info" style="margin-top:.75rem">S2 Ex.11 : W=3M€, μ=0%, σ=1.4%/j → VaR 95%, 99%, VaR(99%) depuis VaR(95%), VaR(10j,99%)</div>
+    </div>
+    <div class="card"><div class="card-title">VaR sur différents horizons</div><div class="chart-wrap" style="height:190px"><canvas id="varHorizonChart"></canvas></div></div>
+  </div>
+  <div id="var-hist" style="display:none">
+    <div class="card"><div class="card-title">VaR historique — Simulation sur scénarios</div>
+      <div class="formula">VaR(99%, N scénarios) = (N+1)e pire perte parmi N·1% pires observations</div>
+      <div class="info">S2 Ex.12 : W=2M€, 500 scénarios. VaR(99%) = 5e pire perte (500×1%=5) = 66 000€. VaR(95%) = 25e pire perte (500×5%=25).</div>
+      <div class="two-col">
+        <div><label>Nombre de scénarios N</label><input type="number" id="hs_N" value="500" step="50"><label>Position W (€)</label><input type="number" id="hs_W" value="2000000" step="100000"></div>
+        <div><label>5 pires pertes (€, séparées par virgule)</label><input type="text" id="hs_pertes" value="85000,74500,70000,68500,66000"></div>
+      </div>
+      <button class="btn btn-primary" onclick="calcHistSim()">Calculer VaR historique</button>
+      <div id="res-hs" style="display:none" class="result-table"></div>
+    </div>
+    <div class="card"><div class="card-title">Distribution P&amp;L historique — titre actif</div>
+      <div class="info" id="hist-info2">Sélectionnez un titre pour voir sa distribution empirique.</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="histChart2"></canvas></div>
+    </div>
+  </div>
+  <div id="var-conv" style="display:none">
+    <div class="card"><div class="card-title">Conversions — Racine du temps &amp; Ratio z</div>
+      <div class="formula">VaR(N j) = VaR(1 j) × √N &nbsp;|&nbsp; VaR(99%) = VaR(95%) × z₉₉/z₉₅ = × 1.4142</div>
+      <div class="two-col">
+        <div><label>VaR journalière de référence (€)</label><input type="number" id="conv_v" value="69188" step="100"><label>Horizon cible N (jours)</label><input type="number" id="conv_N" value="10" step="1" min="1"></div>
+        <div><label>VaR 95% à convertir (€)</label><input type="number" id="conv_95" value="69188" step="100"></div>
+      </div>
+      <button class="btn btn-primary" onclick="calcConv()">Convertir</button>
+      <div id="res-conv" style="display:none" class="result-table"></div>
+    </div>
+    <div class="card"><div class="card-title">Comparaison 95% / 99% sur différents horizons</div><div class="chart-wrap" style="height:190px"><canvas id="convChart"></canvas></div></div>
+  </div>
+</div>
+
+<!-- ═══════════════ PORTEFEUILLE ═══════════════ -->
+<div class="page" id="page-portefeuille">
+  <div class="tab-bar">
+    <button class="tab active" onclick="showTab('pf','ratios',this)">Sharpe · Treynor · Alpha</button>
+    <button class="tab" onclick="showTab('pf','compare',this)">Comparatif CAC40</button>
+  </div>
+  <div id="pf-ratios">
+    <div class="card"><div class="card-title">Ratios de performance</div>
+      <div class="formula">Sharpe=(Rp−Rf)/σp &nbsp;|&nbsp; Treynor=(Rp−Rf)/β &nbsp;|&nbsp; α=Rp−[Rf+β·(Rm−Rf)]</div>
+      <div class="info" id="pf-info">Sélectionnez un titre pour pré-remplir.</div>
+      <div class="two-col">
+        <div><label>Rp (%)</label><input type="number" id="pf_Rp" value="20.68" step="0.01"><label>σp (%)</label><input type="number" id="pf_sig" value="24.15" step="0.01"><label>β</label><input type="number" id="pf_beta" value="1.090" step="0.001"></div>
+        <div><label>Rf (%) — OAT 10Y</label><input type="number" id="pf_Rf" value="3.42" step="0.01"><label>Rm (%) — CAC40</label><input type="number" id="pf_Rm" value="4.57" step="0.01"></div>
+      </div>
+      <button class="btn btn-primary" onclick="calcPerf()">Calculer</button>
+      <div id="res-pf" style="display:none" class="result-table"></div>
+    </div>
+    <div class="card"><div class="card-title">Droite de marché (SML — MEDAF)</div><div class="chart-wrap" style="height:210px"><canvas id="smlChart"></canvas></div></div>
+  </div>
+  <div id="pf-compare" style="display:none">
+    <div class="card"><div class="card-title">Comparatif — Titres CAC40</div><div class="chart-wrap" style="height:250px"><canvas id="compareChart"></canvas></div></div>
+    <div class="card"><div class="card-title">Tableau détaillé</div>
+      <table class="dt"><thead><tr><th>Titre</th><th>Rp 6M%</th><th>Volatilité</th><th>Bêta</th><th>Sharpe</th><th>Treynor</th><th>Alpha</th></tr></thead><tbody id="compareTableBody"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ CARNET ═══════════════ -->
+<div class="page" id="page-carnet">
+  <div id="hdr-carnet"></div>
+  <div class="tab-bar">
+    <button class="tab active" onclick="showTab('car','fixing',this)">Fixing (cours d'ouverture)</button>
+    <button class="tab" onclick="showTab('car','continu',this)">Cotation continue</button>
+  </div>
+  <div id="car-fixing">
+    <div class="info">Exemple Session 1 et Session 2 intégrés. Modifiez les ordres pour simuler d'autres configurations.</div>
+    <div class="grid2">
+      <div class="card"><div class="card-title">Saisie du carnet avant ouverture</div>
+        <div id="fixing-input-area"></div>
+        <button class="btn btn-primary" style="margin-top:.5rem" onclick="calcFixing()">Déterminer le cours d'ouverture</button>
+      </div>
+      <div class="card"><div class="card-title">Résultat du fixing</div><div id="fixing-result"></div></div>
+    </div>
+  </div>
+  <div id="car-continu" style="display:none">
+    <div class="grid2">
+      <div class="card"><div class="card-title">Carnet en temps réel simulé — <span id="carnet-ticker-label" style="color:var(--blue)">AIR.PA</span></div><div id="carnet-display"></div></div>
+      <div class="card"><div class="card-title">Statistiques &amp; Passer un ordre</div>
+        <div id="carnet-stats" class="result-table"></div>
+        <div style="margin-top:1rem"><div class="card-title" style="margin-bottom:.5rem">Passer un ordre</div>
+          <div class="two-col">
+            <div><label>Type</label><select id="ord_type"><option value="limit">Cours limité</option><option value="market">Au marché</option><option value="best">Meilleure limite</option></select><label>Sens</label><select id="ord_sens"><option value="buy">Achat</option><option value="sell">Vente</option></select></div>
+            <div><label>Quantité</label><input type="number" id="ord_qty" value="50" step="1"><label>Cours limite (€)</label><input type="number" id="ord_prix" value="" step="0.01"></div>
+          </div>
+          <button class="btn btn-primary" onclick="passOrdre()">Passer l'ordre</button>
+          <div id="res-ordre" style="margin-top:.75rem;font-size:12px;color:var(--green);font-family:var(--mono)"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- end content -->
+</div><!-- end main -->
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// MARKET DATA
+// ══════════════════════════════════════════════════════════════
+const MD={meta:{updated:"Mars 2026",rf:3.42,rm:1.94,euribor3m:3.85,euribor6m:3.72,estrep:3.65,refi:3.4,oat:{"2":2.85,"5":3.12,"10":3.42,"30":3.78}},
+stocks:{
+"AIR.PA":{name:"Airbus SE",sector:"Aerospace & Defense",price:168.38,change:-3.66,changePct:-2.13,high52:220.2,low52:132.5,beta:1.248,volatility:24.26,return6m:-10.7,eps:7.411,dps:3.403,per:25.5,dividendYield:1.9,sharesOut:787228,netIncome:5221,totalDiv:2679,marketCap:134503,history:[205.8,207.25,208.45,208.6,207.75,208.4,212.7,213.4,214.15,212.85,212.35,208.65,208.05,211.1,211,212,210.25,206.5,207.3,204.15,203.25,204.4,202.75,200.05,201.75,204.85,204.15,204.45,192.58,190.5,198.12,197.02,196.7,198.08,195.44,193.98,193.28,194.02,196.12,192.96,190.4,194.04,195.84,195.72,196.72,195.96,196,198.94,198.4,203.7,208,209.4,213.75,215.2,215.1,216.15,220.2,215.45,214.85,217.4,210.4,207.95,207.4,206.75,206.8,202.4,199.4,195.06,194,193.4,193.8,190.24,188.26,189.52,191.3,193.14,191.62,187.24,190.42,192.42,197.2,196.5,200.65,187.1,189.74,183.14,182.84,184.48,186.74,184.24,180.28,175.42,177.2,175.88,175.5,175.42,177.9,176.92,172.04,168.38]},
+"BNP.PA":{name:"BNP Paribas SA",sector:"Banks",price:84.89,change:-0.91,changePct:-1.06,high52:96.37,low52:63.78,beta:1.285,volatility:27.25,return6m:8.61,eps:11.719,dps:5.838,per:8.3,dividendYield:6.08,sharesOut:1100099,netIncome:12225,totalDiv:6422,marketCap:94284,history:[68.37,68.72,68.48,69.19,66.74,66.94,66.47,67.06,66,66,65.98,65.34,65.49,67,67.55,69.29,69.59,68.83,68.3,66.69,67.07,70.02,70.47,70.42,71.77,72.34,73.39,73.69,73.44,75.08,74.25,75.69,75.39,76.42,77.54,77.01,78.67,78.09,79.08,78.86,80.08,80.24,80.6,80.25,80.61,80.52,80.22,81.1,80.79,81.92,81.87,80.57,79.7,82.5,87.2,86.98,86.9,87,87.38,87.21,86.85,86.42,85.76,88.35,88.14,88.54,90.15,90.39,90.04,91.2,92.38,91.92,90.93,91.98,93.18,94.39,93.03,92.7,91.59,89.4,90.84,92.37,94.25,93.84,94.73,95.85,94.48,96.37,96.3,95.5,92.08,88.31,89.32,87.03,86.35,85.33,88.37,89.44,85.8,84.89]},
+"ACCP.PA":{name:"Accor SA",sector:"Hotels, Motels & Cruise Lines",price:40.5,change:-0.98,changePct:-2.36,high52:49.78,low52:36.12,beta:1.314,volatility:26.44,return6m:-0.22,eps:2.355,dps:1.506,per:25.2,dividendYield:3.33,sharesOut:234707,netIncome:449,totalDiv:354,marketCap:9584,history:[42.63,42.21,45.18,45.66,45.32,45.02,44.76,44.15,44.63,44.79,45.54,45.07,45.45,46.52,46.69,47.12,46.77,46.46,46.01,44.85,45.35,44.98,45.58,46.14,47.01,46.94,47.36,46.62,46.35,46.64,46.81,46,46.58,46.14,45.98,45.41,46.2,46.8,47.06,47.49,47.62,47.14,48.06,48.13,47.79,47.6,47.57,48.03,48.22,47.81,47.63,47.64,47.89,48.33,47.72,47.53,47,45.99,46.1,46.3,45.61,45.57,46,47.16,46.51,46.61,46.27,45.52,45.38,45.86,47.34,46.73,48.51,48.25,48.78,48.66,49.16,48.5,49.37,49.22,49.25,49.78,49.56,48.33,48.48,48,48.07,48.69,49.49,49.26,44.88,43.57,45.45,44.4,43.33,42.45,43.44,42.86,41.48,40.5]},
+"AXAF.PA":{name:"AXA SA",sector:"Life & Health Insurance",price:38.3,change:0.16,changePct:0.42,high52:43.4,low52:35.19,beta:0.966,volatility:17.49,return6m:-4.18,eps:4.159,dps:2.486,per:12,dividendYield:6.06,sharesOut:2172837,netIncome:9797,totalDiv:5402,marketCap:80730,history:[39.34,39.39,39.4,39.61,39.7,39.23,39.34,37.63,37.77,37.87,38.11,37.78,37.51,37.94,38.19,38.54,38.95,38.49,38.24,37.86,37.8,37.78,38.14,38.24,38.3,38.74,38.93,38.9,38.62,38.59,38.19,38.56,38.55,38.82,39.03,39.24,39.91,40.38,40.74,40.55,40.99,40.83,41.2,41.1,41.11,41.14,40.86,41.14,40.96,40.95,40.82,40.54,40.3,40.44,39.99,39.75,39,39.09,39.36,39.27,39.37,38.88,38,38.29,37.71,37.91,37.76,38.06,38.12,38.43,38.93,39.31,40.13,39.46,39.66,39.54,38.46,37.79,37.92,37.46,37.73,38.76,38.75,39.12,39.8,39.82,40,40.21,40.86,41.46,40.53,38.96,38.76,38.05,37.89,37.48,38.17,37.92,38.14,38.3]},
+"DANO.PA":{name:"Danone SA",sector:"Food Processing",price:71.92,change:1.68,changePct:2.39,high52:79.6,low52:65.78,beta:0.309,volatility:22.88,return6m:-3.2,eps:3.943,dps:2.32,per:25.5,dividendYield:3.13,sharesOut:640173,netIncome:1824,totalDiv:1485,marketCap:49409,history:[78.66,78.24,77.78,78.04,78.06,77.02,77.26,76.68,76.72,77.16,77.1,77.4,78.2,78.18,78.98,79.34,79.6,78.54,78.26,77.74,77.66,77.14,78.46,77.14,77.18,77.5,77.4,77,77.4,76.7,76.62,76.12,76.18,76.08,75.66,75.12,75.76,76.1,77.04,76.98,77.46,78.26,77.76,76.98,76.48,76.88,76.74,77.02,76.78,76.04,74.4,75.08,74.94,76.2,76.82,77.36,77.58,76.28,76.52,75.44,74.04,73.6,67.4,68.26,67.54,66,66.16,66.54,66.1,65.84,68.96,70.28,71.88,71.82,69.16,69.82,70,69.02,72.28,72.32,72.6,72.44,72.28,74.12,73.6,72.04,72.06,72.42,72.7,72.64,71.22,69.94,70.94,70.04,70.2,69.2,69.3,69,70.24,71.92]},
+"LVMH.PA":{name:"LVMH Moet Hennessy Louis Vuitton SE",sector:"Apparel & Accessories",price:473.7,change:-21.3,changePct:-4.3,high52:652.1,low52:437.55,beta:1.278,volatility:32.37,return6m:-3.28,eps:22.982,dps:13.214,per:21.7,dividendYield:2.74,sharesOut:496391,netIncome:10878,totalDiv:6559,marketCap:237694,history:[623.2,620.8,612.5,611.5,614.6,618.8,610.1,612.1,616.8,611.2,612.8,600,603.2,617.9,632.9,647.2,636.8,637,624,611.3,609.6,619.6,623,621.7,619.3,625.4,627.4,635.5,642.7,636.2,630.3,633.1,628.1,625.2,616.3,618.8,625.2,624.5,626.1,636.5,631.7,637.4,631.7,627.7,627.3,632.1,633.2,639.3,645,641.8,642.8,644.4,629.3,634.5,652.1,648.3,646.6,637.9,625.7,609.2,582.8,570,585.2,595.7,591.4,588,589.3,542.8,542.4,546.9,538.3,529,536.1,538.2,536.2,535.4,537.7,525.1,524.5,514.2,518.3,527.7,533.9,531.5,554.7,558,561.8,553,551.6,544.1,520.5,502.2,507.4,505.8,502.2,497.7,504.5,500.3,495,473.7]},
+"TOTF.PA":{name:"TotalEnergies SE",sector:"Integrated Oil & Gas",price:72.33,change:1.93,changePct:2.74,high52:72.33,low52:48.26,beta:0.611,volatility:18.68,return6m:37.09,eps:7.158,dps:3.96,per:14.4,dividendYield:4.7,sharesOut:2142085,netIncome:13127,totalDiv:8482,marketCap:159590,history:[53.03,54.1,53.91,53.77,53.48,54.14,53.64,53.95,53.79,53.6,53.68,53.24,53.58,54.04,55.34,55.3,56.19,56.23,56.53,55.47,55.4,55.67,55.97,55.89,56.17,56.66,56.45,56.8,56.71,56.52,57.04,57.18,56.4,56.32,56.51,55.82,55.84,55.59,55.5,54.5,55.13,55.43,55.81,55.94,55.85,55.61,55.95,56.4,55.59,56.1,55.79,55.04,53.51,53.38,55.12,55.31,56.53,57.06,56.74,56.8,56.11,56.9,57.75,57.24,57.98,58.9,59.34,60,60.82,61.15,60.63,61.48,62.56,61.95,62.58,62.63,62.51,64.22,64.3,64.38,64.16,64.57,65.34,66.53,65.44,66.14,66.72,67.37,67.55,67.28,69.36,68.1,66.86,66.77,68,68.89,68.74,70,70.4,72.33]},
+"SASY.PA":{name:"Sanofi SA",sector:"Pharmaceuticals",price:76.39,change:-0.13,changePct:-0.17,high52:109.62,low52:75.81,beta:0.791,volatility:23.08,return6m:-4.85,eps:8.508,dps:4.283,per:19,dividendYield:5.39,sharesOut:1207539,netIncome:7813,totalDiv:5172,marketCap:92599,history:[86.72,86.61,88.79,88.13,87.25,87.92,88.07,87.6,86.94,86.31,85.23,85.61,85.44,86.81,89.05,90.13,90.44,89.59,89.89,87.58,85.94,85.32,86.32,85.95,86.39,86.23,85.89,85.76,86.59,86.15,85.64,84.57,85,83.6,83.23,82.68,83.64,83.32,80.6,80.94,82.12,82.1,82.38,81.58,82.22,81.61,82.24,83,82.72,82.32,81.19,82.29,82.75,82.89,84.44,82.41,80.5,82.55,81.63,80.78,78.99,78.03,78.4,79.76,79.31,79.88,79.75,77.54,77.08,79.2,80.45,81.08,81.84,81.09,80.36,80.29,82.2,82.56,79.1,77.62,77.37,78.13,77.72,79,79.58,80.76,80.61,80.79,80.88,82.2,81.45,79.86,79.23,77.73,76.39,75.81,76.31,76.25,76.52,76.39]},
+"SGOB.PA":{name:"Compagnie de Saint Gobain SA",sector:"Construction Supplies & Fixtures",price:71.8,change:-0.42,changePct:-0.58,high52:105.9,low52:71.8,beta:1.57,volatility:26.44,return6m:-21.97,eps:6.689,dps:2.431,per:12.4,dividendYield:3.2,sharesOut:492708,netIncome:2883,totalDiv:1198,marketCap:35821,history:[89.66,89.34,90.38,90.16,88.96,88.04,87.2,84.06,83.24,81.68,82.66,80.82,79.78,80.86,82.74,83.18,83.98,82.6,82,79.92,81.24,80.34,81.3,81.58,85,86.1,85.82,85.94,85.4,84.68,83.8,84.34,86.74,84.78,84.3,83.5,87.14,86.3,87.66,89.16,86.72,87.88,86.08,85.96,86.16,85.98,86.4,86.86,86.96,87.02,85.24,83.3,84.08,82.6,84.6,86.82,83.66,84.46,84.98,83.94,82.42,81.26,81.68,84.78,83.2,83.86,84.64,84.78,83.42,83.22,84.42,86.26,87.38,86.88,88.34,88.2,88.02,88.74,89.58,90.86,89.26,89.3,87.82,87.54,90.24,88.5,87.9,87.8,86.86,86.24,82.78,78.08,77.16,75.92,74.06,73.26,74.12,73.9,72.22,71.8]}
+}};
+
+let currentTicker="AIR.PA";
+const charts={};
+function f(n,d=2){return isNaN(n)?'—':Number(n).toFixed(d)}
+function pct(n,d=2){return f(n,d)+'%'}
+function signed(n,d=2){return(n>=0?'+':'')+f(n,d)}
+function row(l,v,cls=''){return`<div class="result-row"><span class="result-label">${l}</span><span class="result-val ${cls}">${v}</span></div>`}
+function dc(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+function mean(a){return a.reduce((x,y)=>x+y,0)/a.length}
+function std(a){const m=mean(a);return Math.sqrt(a.reduce((x,y)=>x+(y-m)**2,0)/a.length)}
+function getR(h){const r=[];for(let i=1;i<h.length;i++)r.push((h[i]-h[i-1])/h[i-1]*100);return r}
+function histo(data,bins){const mn=Math.min(...data),mx=Math.max(...data),step=(mx-mn)/bins;const counts=Array(bins).fill(0),labs=[];for(let i=0;i<bins;i++)labs.push(f(mn+i*step+step/2,2));data.forEach(v=>{const idx=Math.min(Math.floor((v-mn)/step),bins-1);counts[idx]++;});return{counts,labs}}
+
+// NAV
+function showPage(id,el){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');refreshPage(id);}
+function showTab(s,t,el){document.querySelectorAll(`[id^="${s}-"]`).forEach(x=>{if(x.tagName==='DIV')x.style.display='none'});document.getElementById(s+'-'+t).style.display='block';el.closest('.tab-bar').querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));el.classList.add('active');setTimeout(()=>lazyInit(s,t),60);}
+function lazyInit(s,t){if(s==='pf'&&t==='compare')buildCompare();if(s==='obl'&&t==='oat')initOATTable();if(s==='obl'&&t==='courbe')initYieldCurveChart();if(s==='mon'&&t==='taux')buildEuriborChart();if(s==='mon'&&t==='calculs')buildBCEChart();if(s==='der'&&t==='swap')buildSwapInputs();if(s==='car'&&t==='fixing')buildFixingInput();}
+
+function selectStock(k){currentTicker=k;document.querySelectorAll('.stock-btn').forEach(b=>b.classList.remove('active'));const el=document.getElementById('sb-'+k.replace('.','_'));if(el)el.classList.add('active');const ap=document.querySelector('.page.active');if(ap)refreshPage(ap.id.replace('page-',''));}
+
+function refreshPage(id){const s=MD.stocks[currentTicker];if(!s)return;const hdr=stockHeader(currentTicker);if(id==='dashboard')buildDashboard();if(id==='actions'){document.getElementById('hdr-actions').innerHTML=hdr;document.getElementById('bpa-info').innerHTML=`Données pré-remplies : <b>${s.name}</b>`;document.getElementById('bpa_rn').value=s.netIncome;document.getElementById('bpa_div').value=s.totalDiv;document.getElementById('bpa_n').value=s.sharesOut;document.getElementById('bpa_cours').value=s.price;buildPERChart();}if(id==='monetaire')buildEuriborChart();if(id==='risques'){document.getElementById('hdr-var').innerHTML=hdr;const r=getR(s.history),mu=mean(r),sg=std(r);document.getElementById('vc_mu').value=f(mu,4);document.getElementById('vc_sigma').value=f(sg,4);document.getElementById('var-metrics').innerHTML=`<div class="metric"><div class="metric-label">μ journalier</div><div class="metric-value ${mu>=0?'pos':'neg'}">${f(mu,4)}%</div></div><div class="metric"><div class="metric-label">σ journalier</div><div class="metric-value blue">${f(sg,4)}%</div></div><div class="metric"><div class="metric-label">σ annualisée</div><div class="metric-value">${f(sg*Math.sqrt(252),2)}%</div></div><div class="metric"><div class="metric-label">Rend. 6M</div><div class="metric-value ${s.return6m>=0?'pos':'neg'}">${signed(s.return6m,2)}%</div></div>`;document.getElementById('hist-info2').innerHTML=`Distribution empirique : <b>${s.name}</b> — ${r.length} obs.`;buildHistChart2();}if(id==='portefeuille'){document.getElementById('pf-info').innerHTML=`Données : <b>${s.name}</b>`;document.getElementById('pf_Rp').value=s.return6m;document.getElementById('pf_sig').value=s.volatility;document.getElementById('pf_beta').value=s.beta;}if(id==='carnet'){document.getElementById('hdr-carnet').innerHTML=hdr;document.getElementById('carnet-ticker-label').textContent=currentTicker;document.getElementById('ord_prix').value=f(s.price,2);buildCarnet(s);buildFixingInput();}if(id==='derives'){document.getElementById('hdr-derives').innerHTML=hdr;document.getElementById('hdr-opt').innerHTML=hdr;document.getElementById('opt_S').value=s.price;document.getElementById('opt_K').value=f(s.price*0.97,2);}}
+
+function stockHeader(k){const s=MD.stocks[k];const pos=s.changePct>=0;return`<div class="stock-header"><div class="sh-left"><div class="sh-name">${s.name}</div><div class="sh-ticker">${k}</div><span class="sh-sector">${s.sector}</span><div class="sh-meta"><div class="sh-meta-item"><span class="ml">52S H </span><span class="mv">${f(s.high52)}</span></div><div class="sh-meta-item"><span class="ml">52S B </span><span class="mv">${f(s.low52)}</span></div><div class="sh-meta-item"><span class="ml">β </span><span class="mv">${f(s.beta,3)}</span></div><div class="sh-meta-item"><span class="ml">Vol </span><span class="mv">${f(s.volatility,1)}%</span></div><div class="sh-meta-item"><span class="ml">Cap </span><span class="mv">${(s.marketCap/1000).toFixed(1)}Md€</span></div></div></div><div><div class="sh-price">${f(s.price,2)} €</div><div class="sh-change ${pos?'pos':'neg'}">${pos?'▲':'▼'} ${f(Math.abs(s.change),2)} (${f(Math.abs(s.changePct),2)}%)</div></div></div>`}
+
+function buildTickerStrip(){const inner=document.getElementById('tickerInner');let h='';for(let i=0;i<2;i++){Object.entries(MD.stocks).forEach(([k,s])=>{const pos=s.changePct>=0;h+=`<div class="tick-item" onclick="selectStock('${k}')"><span class="tick-name">${k.replace('.PA','')}</span><span class="tick-price">${f(s.price,2)}</span><span class="tick-chg ${pos?'pos':'neg'}">${pos?'▲':'▼'}${f(Math.abs(s.changePct),2)}%</span></div>`});}inner.innerHTML=h;}
+function buildStockGrid(){const g=document.getElementById('stockGrid');g.innerHTML=Object.entries(MD.stocks).map(([k,s])=>{const pos=s.changePct>=0;return`<button class="stock-btn ${k===currentTicker?'active':''}" onclick="selectStock('${k}')" id="sb-${k.replace('.','_')}"><span class="stock-ticker">${k.replace('.PA','')}</span><span class="stock-pct ${pos?'pos':'neg'}">${pos?'+':''}${f(s.changePct,2)}%</span></button>`}).join('');}
+
+// DASHBOARD
+function buildDashboard(){const s=MD.stocks[currentTicker];const r=getR(s.history),mu=mean(r),sg=std(r);const pos=s.changePct>=0;document.getElementById('dash-metrics').innerHTML=`<div class="metric"><div class="metric-label">Cours</div><div class="metric-value">${f(s.price,2)} €</div><div class="metric-sub">${s.name}</div></div><div class="metric"><div class="metric-label">Variation</div><div class="metric-value ${pos?'pos':'neg'}">${signed(s.changePct,2)}%</div></div><div class="metric"><div class="metric-label">Volatilité</div><div class="metric-value blue">${f(s.volatility,1)}%</div></div><div class="metric"><div class="metric-label">Bêta</div><div class="metric-value">${f(s.beta,3)}</div></div>`;document.getElementById('dash-ratios').innerHTML=`<div class="metric"><div class="metric-label">BPA</div><div class="metric-value">${f(s.eps,2)} €</div></div><div class="metric"><div class="metric-label">PER</div><div class="metric-value">${f(s.per,1)}x</div></div><div class="metric"><div class="metric-label">Rend. Div.</div><div class="metric-value">${f(s.dividendYield,2)}%</div></div>`;dc('dashPriceChart');const ctx1=document.getElementById('dashPriceChart').getContext('2d');charts['dashPriceChart']=new Chart(ctx1,{type:'line',data:{labels:s.history.map((_,i)=>i===s.history.length-1?'Auj.':''),datasets:[{data:s.history,borderColor:pos?'#3fb950':'#f85149',backgroundColor:'transparent',pointRadius:0,borderWidth:1.5,tension:0.3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#6e7681',font:{size:9}},grid:{color:'#21262d'}},y:{ticks:{color:'#6e7681',font:{size:9},callback:v=>v+'€'},grid:{color:'#21262d'}}}}});
+const bins=histo(r,20);dc('dashReturnChart');const ctx2=document.getElementById('dashReturnChart').getContext('2d');charts['dashReturnChart']=new Chart(ctx2,{type:'bar',data:{labels:bins.labs,datasets:[{data:bins.counts,backgroundColor:bins.labs.map(l=>parseFloat(l)<0?'rgba(248,81,73,0.6)':'rgba(63,185,80,0.6)'),borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#6e7681',font:{size:8},maxTicksLimit:8},grid:{display:false}},y:{ticks:{color:'#6e7681',font:{size:9}},grid:{color:'#21262d'}}}}});
+const oat=MD.meta.oat;dc('dashYieldChart');const ctx3=document.getElementById('dashYieldChart').getContext('2d');charts['dashYieldChart']=new Chart(ctx3,{type:'line',data:{labels:['2A','5A','10A','30A'],datasets:[{label:'OAT',data:[oat['2'],oat['5'],oat['10'],oat['30']],borderColor:'#58a6ff',backgroundColor:'rgba(88,166,255,0.1)',pointBackgroundColor:'#58a6ff',tension:0.4,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8b949e'}},y:{ticks:{color:'#8b949e',callback:v=>v+'%'},grid:{color:'#21262d'},min:2,max:4.5}}}});}
+
+// ACTIONS
+function calcBPA(){const rn=+document.getElementById('bpa_rn').value,div=+document.getElementById('bpa_div').value,n=+document.getElementById('bpa_n').value/1000,c=+document.getElementById('bpa_cours').value;const bpa=rn/n*1000,dpa=div/n*1000,rend=dpa/c*100,per=c/bpa;const d=document.getElementById('res-bpa');d.style.display='block';d.innerHTML=row('BPA',f(bpa,2)+' €')+row('DPA',f(dpa,2)+' €')+row('Rendement dividende',pct(rend,2))+row('PER',f(per,1)+'x');}
+function buildPERChart(){dc('perChart');const labs=[],pers=[],cols=[];Object.entries(MD.stocks).forEach(([k,s])=>{labs.push(k.replace('.PA',''));pers.push(s.per);cols.push(k===currentTicker?'#58a6ff':'rgba(88,166,255,0.35)');});const ctx=document.getElementById('perChart').getContext('2d');charts['perChart']=new Chart(ctx,{type:'bar',data:{labels:labs,datasets:[{data:pers,backgroundColor:cols,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8b949e',font:{size:10}}},y:{ticks:{color:'#8b949e',callback:v=>v+'x'},grid:{color:'#21262d'}}}}});}
+function calcDPS(){const N=+document.getElementById('dps_N').value,n=+document.getElementById('dps_n').value,CA=+document.getElementById('dps_CA').value,PS=+document.getElementById('dps_PS').value,VN=+document.getElementById('dps_VN').value;const VM=(N*CA+n*PS)/(N+n),DPS=CA-VM,par=Math.round(N/n);const d=document.getElementById('res-dps');d.style.display='block';const cbApres=(N+n)*CA;d.innerHTML=row('Capital après',(((N+n)*VN)/1e9).toFixed(3)+' Md€')+row('CB après',f(cbApres/1e9,3)+' Md€')+row('Parité','1 pour '+par)+row('VM ex-droit',f(VM,4)+' €','blue')+row('Valeur DPS',f(DPS,4)+' €',(DPS>0?'pos':'neg'))+row('Constat',DPS<0?'PS > CA : prime d\'émission > cours ⚠ Cas inhabituel':'PS < CA : décote habituelle pour attirer souscripteurs');dc('dpsChart');const ctx=document.getElementById('dpsChart').getContext('2d');charts['dpsChart']=new Chart(ctx,{type:'bar',data:{labels:['Cours avant','VM ex-droit','Prix souscription','DPS'],datasets:[{data:[CA,VM,PS,Math.abs(DPS)],backgroundColor:['#58a6ff','#e3b341','rgba(88,166,255,0.5)',DPS>=0?'#3fb950':'#f85149'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8b949e'}},y:{ticks:{color:'#8b949e',callback:v=>v+'€'},grid:{color:'#21262d'}}}}});}
+function updateGSMode(){const m=document.getElementById('gs_mode').value;document.querySelectorAll('.gs-field').forEach(el=>el.style.display='none');if(m==='P'){document.getElementById('gs_D').closest('div').querySelectorAll('label,input').forEach(e=>e.style.display='');document.getElementById('gs_r').closest('div').style.display='';document.getElementById('gs_g').closest('div').style.display='';}else if(m==='r'){['gs_D','gs_g','gs_P'].forEach(id=>{const el=document.getElementById(id);if(el)el.closest('div').style.display='';});}else{['gs_r','gs_g','gs_P'].forEach(id=>{const el=document.getElementById(id);if(el)el.closest('div').style.display='';});}}
+function calcGS(){const mode=document.getElementById('gs_mode').value,D=+document.getElementById('gs_D').value,r=+document.getElementById('gs_r').value/100,g=+document.getElementById('gs_g').value/100,P=+document.getElementById('gs_P').value;const d=document.getElementById('res-gs');d.style.display='block';if(mode==='P'){if(r<=g){d.innerHTML='<span style="color:var(--red)">Erreur : r doit être > g</span>';return;}const P0=D/(r-g);d.innerHTML=row('P₀ (g=0)',f(D/r,2)+' €')+row('P₀ (croissance g)',f(P0,2)+' €','blue');}else if(mode==='r'){const ri=D/P+g;d.innerHTML=row('r implicite = D/P₀ + g',pct(ri*100,4),'blue')+row('Décomposition',`${pct(D/P*100,4)} (rendement) + ${pct(g*100,4)} (croissance)`);}else{const Di=P*(r-g);d.innerHTML=row('D anticipé = P₀×(r−g)',f(Di,4)+' €','blue');}const gs=[];for(let gi=0;gi<r*100-0.5&&gi<=9;gi+=0.5)gs.push(gi);const prices=gs.map(gi=>D/(r-gi/100));dc('gsChart');const ctx=document.getElementById('gsChart').getContext('2d');charts['gsChart']=new Chart(ctx,{type:'line',data:{labels:gs.map(gi=>gi+'%'),datasets:[{data:prices,borderColor:'#58a6ff',backgroundColor:'rgba(88,166,255,0.1)',fill:true,tension:0.4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8b949e'}},y:{ticks:{color:'#8b949e',callback:v=>v+'€'},grid:{color:'#21262d'}}}}});}
+
+// OBLIGATIONS
+function calcCC(){const t=+document.getElementById('cc_t').value/100,vn=+document.getElementById('cc_vn').value,j=+document.getElementById('cc_j').value,cours=+document.getElementById('cc_cours').value/100;const cc=t*vn*(j/365),prixPlein=cours*vn+cc;const d=document.getElementById('res-cc');d.style.display='block';d.innerHTML=row('Jours courus',j)+row('Coupon couru (€)',f(cc,6),'blue')+row('Coupon couru (% VN)',pct(cc/vn*100,6))+row('Cours pied coupon (€)',f(cours*vn,4))+row('Prix plein (€)',f(prixPlein,6),'pos');}
+function obligPrix(vn,t,n,r,vr=100){let p=0;const C=t/100*vn;for(let i=1;i<=n;i++)p+=C/Math.pow(1+r/100,i);p+=vn*vr/100/Math.pow(1+r/100,n);return p;}
+function calcTRA(){const vn=+document.getElementById('tra_vn').value,t=+document.getElementById('tra_t').value,n=+document.getElementById('tra_n').value,cours=+document.getElementById('tra_cours').value/100,vr=+document.getElementById('tra_vr').value,prix=cours*vn;let rMin=0.01,rMax=50,r=5;for(let i=0;i<200;i++){r=(rMin+rMax)/2;obligPrix(vn,t,n,r,vr)>prix?rMin=r:rMax=r;}const d=document.getElementById('res-tra');d.style.display='block';d.innerHTML=row('Prix de marché',f(prix,2)+' €')+row('Coupon annuel',f(t/100*vn,2)+' €')+row('TRA',f(r,4)+'%','blue')+row('Vérification',f(obligPrix(vn,t,n,r,vr),2)+' € ≈ '+f(prix,2)+' €','pos');const rs=[0.5,1,1.5,2,2.5,3,3.5,4,5,6,7,8];dc('obligPriceChart');const ctx=document.getElementById('obligPriceChart').getContext('2d');charts['obligPriceChart']=new Chart(ctx,{type:'line',data:{labels:rs.map(r=>r+'%'),datasets:[{data:rs.map(ri=>obligPrix(vn,t,n,ri,vr)),borderColor:'#58a6ff',backgroundColor:'rgba(88,166,255,0.1)',fill:true,tension:0.4},{data:rs.map(()=>prix),borderColor:'#e3b341',borderDash:[5,5],pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8b949e'}},y:{ticks:{color:'#8b949e',callback:v=>v+'€'},grid:{color:'#21262d'}}}}});}
+function calcDuration(){const vn=+document.getElementById('dur_vn').value,t=+document.getElementById('dur_t').value/100,n=+document.getElementById('dur_n').value,y=+document.getElementById('dur_y').value/100,dr=+document.getElementById('dur_dr').value/10000,C=t*vn;let prix=0,stpv=0;for(let i=1;i<=n;i++){const flux=i<n?C:C+vn;const pv=flux/Math.pow(1+y,i);prix+=pv;stpv+=i*pv;}const dur=stpv/prix,mod=-dur/(1+y),dP=mod*prix*dr;const d=document.getElementById('res-dur');d.style.display='block';d.innerHTML=row('Prix actuel',f(prix,4)+' €')+row('Duration Macaulay',f(dur,4)+' ans','blue')+row('Sensibilité (duration modifiée)',f(mod,4))+row('ΔP (Δr='+Math.round(dr*10000)+' bp)',f(dP,4)+' € ('+f(dP/prix*100,3)+'%)',(dP<0?'neg':'pos'));dc('durationChart');const ctx=document.getElementById('durationChart').getContext('2d');const rs=[0.5,1,1.5,2,3,4,5,6,7,8];const cols=['#58a6ff','#3fb950','#e3b341','#bc8cff'];charts['durationChart']=new Chart(ctx,{type:'line',data:{labels:rs.map(r=>r+'%'),datasets:[2,5,10,20].map((m,i)=>({label:m+' ans',data:rs.map(r=>obligPrix(vn,t*100,m,r)),borderColor:cols[i],pointRadius:0,tension:0.3}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8b949e',font:{size:10}}}},scales:{x:{ticks:{color:'#8b949e'}},y:{ticks:{color:'#8b949e',callback:v=>v+'€'},grid:{color:'#21262d'}}}}});}
+function calcForward(){const r1=+document.getElementById('fw_r1').value/100,T1=+document.getElementById('fw_T1').value,r2=+document.getElementById('fw_r2').value/100,T2=+document.getElementById('fw_T2').value;const f_rate=Math.pow(Math.pow(1+r2,T2)/Math.pow(1+r1,T1),1/(T2-T1))-1;const d=document.getElementById('res-fw');d.style.display='block';d.innerHTML=row('Taux forward f('+T1+','+(T2-T1)+')',pct(f_rate*100,4),'blue')+row('Calcul','(1+'+pct(r2*100,3)+')^'+T2+' / (1+'+pct(r1*100,3)+')^'+T1);}
+function initYieldCurveChart(){dc('yieldCurveChart');const oat=MD.meta.oat;const ctx=document.getElementById('yieldCurveChart').getContext('2d');charts['yieldCurveChart']=new Chart(ctx,{type:'line',data:{labels:['2A','5A','10A','30A'],datasets:[{label:'OAT actuelle',data:[oat['2'],oat['5'],oat['10'],oat['30']],borderColor:'#58a6ff',backgroundColor:'rgba(88,166,255,0.1)',fill:true,pointBackgroundColor:'#58a6ff',tension:0.4,borderWidth:2},{label:'Après choc',data:[oat['2'],oat['5'],oat['10'],oat['30']],borderColor:'#e3b341',backgroundColor:'transparent',pointBackgroundColor:'#e3b341',tension:0.4,borderDash:[5,5],borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8b949e'}}},scales:{x:{ticks:{color:'#8b949e'}},y:{ticks:{color:'#8b949e',callback:v=>v+'%'},grid:{color:'#21262d'},min:1,max:6}}}});updateYieldShock(0);}
+function updateYieldShock(bp){document.getElementById('shockVal').textContent=(bp>=0?'+':'')+bp+' bp';const oat=MD.meta.oat,s=bp/100;if(charts['yieldCurveChart']){charts['yieldCurveChart'].data.datasets[1].data=[oat['2']+s,oat['5']+s,oat['10']+s,oat['30']+s];charts['yieldCurveChart'].update();}}
+function initOATTable(){const data=[{svt:'SVT Alpha',p:98.04,m:1000},{svt:'SVT Beta',p:98.03,m:1600},{svt:'SVT Gamma',p:98.02,m:2000},{svt:'SVT Delta',p:98.01,m:2600},{svt:'SVT Epsilon',p:98.00,m:3100},{svt:'SVT Zeta',p:97.99,m:1250}];let cum=0;document.getElementById('oat-tbody').innerHTML=data.map((d,i)=>{cum+=d.m;const tra=(((100/d.p)**10)-1)*100;return`<tr id="oat-row-${i}"><td>${d.svt}</td><td>${d.p}</td><td>${d.m}</td><td>${cum}</td><td>${f(tra,3)}%</td><td id="oat-s-${i}">—</td></tr>`}).join('');}
+function calcOAT(){const target=+document.getElementById('oat_m').value;const data=[{p:98.04,m:1000},{p:98.03,m:1600},{p:98.02,m:2000},{p:98.01,m:2600},{p:98.00,m:3100},{p:97.99,m:1250}];let served=0,pmpN=0,pmpD=0;data.forEach((d,i)=>{if(served<target){const q=Math.min(d.m,target-served);pmpN+=d.p*q;pmpD+=q;served+=d.m;document.getElementById('oat-s-'+i).innerHTML='<span class="badge badge-green">RETENU</span>';}else{document.getElementById('oat-s-'+i).innerHTML='<span class="badge badge-red">NON RETENU</span>';}});const d=document.getElementById('res-oat');d.style.display='block';d.innerHTML=row('Montant adjugé',Math.min(served,target).toLocaleString('fr-FR')+' M€')+row('PMP',f(pmpN/pmpD,4)+'%','blue')+row('Prix marginal','98.01% (dernier retenu)');}
+
+// MONETAIRE
+function buildEuriborChart(){dc('euriborChart');const ctx=document.getElementById('euriborChart').getContext('2d');charts['euriborChart']=new Chart(ctx,{type:'line',data:{labels:['1W','1M','3M','6M','12M'],datasets:[{label:'Euribor (%)',data:[3.68,3.74,3.85,3.72,3.58],borderColor:'#e3b341',backgroundColor:'rgba(227,179,65,0.1)',pointBackgroundColor:'#e3b341',tension:0.4,fill:true},{label:'Taux refi',data:[3.40,3.40,3.40,3.40,3.40],borderColor:'rgba(88,166,255,0.6)',borderDash:[4,4],pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8b949e',font:{size:10}}}},scales:{x:{ticks:{color:'#8b949e'}},y:{ticks:{color:'#8b949e',callback:v=>v+'%'},grid:{color:'#21262d'},min:3,max:4.2}}}});}
+function calcBTF(){const vn=+document.getElementById('btf_vn').value,p=+document.getElementById('btf_prix').value,j=+document.getElementById('btf_j').value;const r=(vn-p)/p*(360/j)*100;const d=document.getElementById('res-btf');d.style.display='block';d.innerHTML=row('Taux de rendement précompté',f(r,4)+'%','amber')+row('Décote (VN−Prix)',f(vn-p,2)+' €')+row('Durée',j+' jours = '+f(j/365,3)+' ans')+row('Équivalent taux actuariel',f(Math.pow(1+r/100*j/360,365/j)-1,4)+'%');}
+function calcRepo(){const P=+document.getElementById('repo_P').value,r=+document.getElementById('repo_r').value/100,j=+document.getElementById('repo_j').value,h=+document.getElementById('repo_h').value/100;const liq=P*(1-h),int=liq*r*j/360,rachat=liq+int;const d=document.getElementById('res-repo');d.style.display='block';d.innerHTML=row('Valeur titres collatéral',P.toLocaleString('fr-FR')+' €')+row('Décote / Haircut',pct(h*100,1))+row('Cash livré (après décote)',f(liq,2)+' €','amber')+row('Intérêts repo ('+j+'j)',f(int,2)+' €')+row('Prix de rachat',f(rachat,2)+' €','blue');}
+function buildBCEChart(){dc('bceImpactChart');const ctx=document.getElementById('bceImpactChart').getContext('2d');const oat=MD.meta.oat;charts['bceImpactChart']=new Chart(ctx,{type:'line',data:{labels:['€STR','Euribor 3M','Euribor 6M','OAT 2A','OAT 5A','OAT 10A','OAT 30A'],datasets:[{label:'Avant décision',data:[MD.meta.estrep,MD.meta.euribor3m,MD.meta.euribor6m,oat['2'],oat['5'],oat['10'],oat['30']],borderColor:'#58a6ff',pointBackgroundColor:'#58a6ff',tension:0.4},{label:'Après décision BCE',data:[MD.meta.estrep,MD.meta.euribor3m,MD.meta.euribor6m,oat['2'],oat['5'],oat['10'],oat['30']],borderColor:'#e3b341',pointBackgroundColor:'#e3b341',borderDash:[5,5],tension:0.4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8b949e',font:{size:10}}}},scales:{x:{ticks:{color:'#8b949e',font:{size:9}}},y:{ticks:{color:'#8b949e',callback:v=>v+'%'},grid:{color:'#21262d'},min:1.5,max:5}}}});document.getElementById('bce-impact-text').innerHTML=row('Impact','—');}
+function updateBCEShock(bp){document.getElementById('bceShockVal').textContent=(bp>=0?'+':'')+bp+' bp';const s=bp/100,oat=MD.meta.oat;if(charts['bceImpactChart']){const full=[s,s*0.8,s*0.7,s*0.6,s*0.5,s*0.4,s*0.3];const base=[MD.meta.estrep,MD.meta.euribor3m,MD.meta.euribor6m,oat['2'],oat['5'],oat['10'],oat['30']];charts['bceImpactChart'].data.datasets[1].data=base.map((v,i)=>v+full[i]);charts['bceImpactChart'].update();}const impact=document.getElementById('bce-impact-text');impact.innerHTML=row('Choc CT (€STR, Euribor)',(bp>=0?'+':'')+bp+' bp','amber')+row('Impact OAT 10A (transmission partielle)',signed(bp*0.4/100*100,1)+' bp (~40% du choc)')+row('Interprétation',Math.abs(bp)===0?'Statu quo':bp>0?'Resserrement monétaire → taux montent, prix obligations baissent':'Assouplissement monétaire → taux baissent, prix obligations montent');}
+
+// DÉRIVÉS
+function calcFRA(){const P=+document.getElementById('fra_P').value,K=+document.getElementById('fra_K').value/100,L=+document.getElementById('fra_L').value/100,j=+document.getElementById('fra_j').value,type=document.getElementById('fra_type').value;const num=(L-K)*P*(j/360),den=1+L*(j/360),montant=num/den;const d=document.getElementById('res-fra');d.style.display='block';const verseur=type==='emprunt'?(L>K?'Vendeur FRA → Acheteur (emprunteur couvert)':'Acheteur FRA → Vendeur'):(L<K?'Acheteur FRA → Vendeur (placement couvert)':'Vendeur FRA → Acheteur');d.innerHTML=row('Différentiel L−K',pct((L-K)*100,3),(L-K>0?'pos':'neg'))+row('Montant réglé',f(Math.abs(montant),2)+' €',(montant>0?'pos':'neg'))+row('Sens du règlement',verseur)+row('Couverture efficace ?',type==='emprunt'?(L>K?'✓ Oui (L>K — hausse couverte)':'✗ Non (L<K — taux ont baissé)') :(L<K?'✓ Oui (L<K — baisse couverte)':'✗ Non (L>K — taux ont monté)'));}
+function calcFw2(){const r1=+document.getElementById('fw2_r1').value/100,T1=+document.getElementById('fw2_T1').value,r2=+document.getElementById('fw2_r2').value/100,T2=+document.getElementById('fw2_T2').value;const f_rate=Math.pow(Math.pow(1+r2,T2)/Math.pow(1+r1,T1),1/(T2-T1))-1;const d=document.getElementById('res-fw2');d.style.display='block';d.innerHTML=row('f('+T1+','+(T2-T1)+')',pct(f_rate*100,4),'blue');}
+function calcOption(){const type=document.getElementById('opt_type').value,pos=document.getElementById('opt_pos').value,S=+document.getElementById('opt_S').value,K=+document.getElementById('opt_K').value,pr=+document.getElementById('opt_prime').value;const iv=type==='call'?Math.max(0,S-K):Math.max(0,K-S);const gain=pos==='buy'?iv-pr:pr-iv;const bk=type==='call'?K+pr:K-pr;const d=document.getElementById('res-opt');d.style.display='block';d.innerHTML=row('Valeur intrinsèque (payoff brut)',f(iv,2)+' €',(iv>0?'pos':''))+row('Position',pos==='buy'?'Acheteur (long)':'Vendeur (short)')+row('Gain net',f(gain,2)+' €',(gain>0?'pos':'neg'))+row('Breakeven',f(bk,2)+' €')+row('Statut',iv>0?'In the money (ITM)':'Out of the money (OTM) — option abandonnée');dc('optionChart');const pts=[];for(let s=Math.max(1,K*0.7);s<=K*1.3;s+=K*0.01)pts.push(parseFloat(f(s,2)));const gains=pts.map(s=>{const iv2=type==='call'?Math.max(0,s-K):Math.max(0,K-s);return pos==='buy'?iv2-pr:pr-iv2;});const ctx=document.getElementById('optionChart').getContext('2d');charts['optionChart']=new Chart(ctx,{type:'line',data:{labels:pts.map(p=>f(p,1)),datasets:[{data:gains,borderColor:'#58a6ff',backgroundColor:'transparent',pointRadius:0,tension:0,borderWidth:2},{data:pts.map(()=>0),borderColor:'#6e7681',borderDash:[3,3],pointRadius:0,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8b949e',maxTicksLimit:8}},y:{ticks:{color:'#8b949e',callback:v=>v+'€'},grid:{color:'#21262d'}}}}});}
+function buildSwapInputs(){const nb=+document.getElementById('sw_nb').value||10;const div=document.getElementById('sw-euribor-inputs');let h='';for(let i=1;i<=nb;i++)h+=`<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:4px"><span style="font-size:11px;color:var(--text3);width:60px;font-family:var(--mono)">T+${i*6}m</span><input type="number" id="sw_e${i}" value="${(3.30+(i*0.05)).toFixed(2)}" step="0.05" style="margin-bottom:0"></div>`;div.innerHTML=h;}
+function calcSwap(){const P=+document.getElementById('sw_P').value*1e6,tf=+document.getElementById('sw_tf').value/100;const nb=+document.getElementById('sw_nb').value||10;const e=[];for(let i=1;i<=nb;i++){const el=document.getElementById('sw_e'+i);if(el)e.push(+el.value/100);}const nets=e.map(ei=>(tf-ei)*P/2);const d=document.getElementById('res-swap');d.style.display='block';d.innerHTML=nets.map((n,i)=>row(`T+${(i+1)*6}m — flux net payeur fixe`,f(n/1e6,4)+' M€',(n>0?'pos':'neg'))).join('');dc('swapChart');const ctx=document.getElementById('swapChart').getContext('2d');charts['swapChart']=new Chart(ctx,{type:'bar',data:{labels:e.map((_,i)=>'T+'+(i+1)*6+'m'),datasets:[{data:nets.map(n=>n/1e6),backgroundColor:nets.map(n=>n>0?'rgba(63,185,80,0.7)':'rgba(248,81,73,0.7)'),borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8b949e',font:{size:9}}},y:{ticks:{color:'#8b949e',callback:v=>v+'M€'},grid:{color:'#21262d'}}}}});}
+
+// VaR
+function calcVaR(){const W=+document.getElementById('vc_W').value,mu=+document.getElementById('vc_mu').value/100,sigma=+document.getElementById('vc_sigma').value/100,z=+document.getElementById('vc_conf').value,N=+document.getElementById('vc_N').value,conf=z>2?'99%':'95%';const VaR1=-(mu-z*sigma)*W,VaRN=VaR1*Math.sqrt(N);const d=document.getElementById('res-vc');d.style.display='block';d.innerHTML=row('VaR(1j, '+conf+')',f(VaR1,0)+' €','neg')+row('VaR('+N+'j, '+conf+')',f(VaRN,0)+' €','neg')+row('En % de la position',pct(VaRN/W*100,3))+row('√'+N,f(Math.sqrt(N),4));dc('varHorizonChart');const days=[1,5,10,20,60,252];const v95=-(mu-1.6449*sigma)*W,v99=-(mu-2.3263*sigma)*W;const ctx=document.getElementById('varHorizonChart').getContext('2d');charts['varHorizonChart']=new Chart(ctx,{type:'bar',data:{labels:days.map(d=>d+'j'),datasets:[{label:'VaR 95%',data:days.map(n=>v95*Math.sqrt(n)),backgroundColor:'rgba(88,166,255,0.7)',borderWidth:0},{label:'VaR 99%',data:days.map(n=>v99*Math.sqrt(n)),backgroundColor:'rgba(248,81,73,0.7)',borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8b949e'}}},scales:{x:{ticks:{color:'#8b949e'}},y:{ticks:{color:'#8b949e',callback:v=>Math.round(v/1000)+'k€'},grid:{color:'#21262d'}}}}});}
+function calcHistSim(){const N=+document.getElementById('hs_N').value,W=+document.getElementById('hs_W').value;const pertes=document.getElementById('hs_pertes').value.split(',').map(x=>+x.trim()).sort((a,b)=>b-a);const idx99=Math.ceil(N*0.01)-1,idx95=Math.ceil(N*0.05)-1;const var99=pertes[Math.min(idx99,pertes.length-1)],var95=pertes[Math.min(idx95,pertes.length-1)]||'< données fournies';const d=document.getElementById('res-hs');d.style.display='block';d.innerHTML=row('N scénarios',N)+row('Seuil 99% → rang '+(idx99+1)+' pire perte',f(var99,0)+' €','neg')+row('Seuil 95% → rang '+(idx95+1)+' pire perte',typeof var95==='number'?f(var95,0)+' €':'Non disponible (fournir plus de pertes)',(typeof var95==='number'?'neg':''))+row('VaR(99%) / W',pct(var99/W*100,3));}
+function buildHistChart2(){const s=MD.stocks[currentTicker];if(!s)return;const r=getR(s.history),W=1e7;const bins=histo(r,25);const varLine=r.slice().sort((a,b)=>a-b)[Math.floor(r.length*0.05)];dc('histChart2');const ctx=document.getElementById('histChart2').getContext('2d');charts['histChart2']=new Chart(ctx,{type:'bar',data:{labels:bins.labs,datasets:[{data:bins.counts,backgroundColor:bins.labs.map(l=>parseFloat(l)<varLine?'rgba(248,81,73,0.9)':'rgba(88,166,255,0.5)'),borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8b949e',font:{size:8},maxTicksLimit:10},grid:{display:false}},y:{ticks:{color:'#8b949e'},grid:{color:'#21262d'}}}}});}
+function calcConv(){const v1=+document.getElementById('conv_v').value,N=+document.getElementById('conv_N').value,v95=+document.getElementById('conv_95').value;const vN=v1*Math.sqrt(N),v99=v95*2.3263/1.6449;const d=document.getElementById('res-conv');d.style.display='block';d.innerHTML=row('VaR à '+N+' jours',f(vN,0)+' €','neg')+row('Ratio √'+N,f(Math.sqrt(N),4))+row('VaR 99% depuis VaR 95%',f(v99,0)+' €','neg')+row('Rapport z₉₉/z₉₅',f(2.3263/1.6449,4)+' ≈ √2');dc('convChart');const days=[1,5,10,20,60,252];const ctx=document.getElementById('convChart').getContext('2d');const v99_1j=v95*2.3263/1.6449;charts['convChart']=new Chart(ctx,{type:'line',data:{labels:days.map(d=>d+'j'),datasets:[{label:'VaR 95%',data:days.map(n=>v95*Math.sqrt(n)),borderColor:'#58a6ff',pointBackgroundColor:'#58a6ff',tension:0.3},{label:'VaR 99%',data:days.map(n=>v99_1j*Math.sqrt(n)),borderColor:'#f85149',pointBackgroundColor:'#f85149',tension:0.3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8b949e'}}},scales:{x:{ticks:{color:'#8b949e'}},y:{ticks:{color:'#8b949e',callback:v=>Math.round(v/1000)+'k€'},grid:{color:'#21262d'}}}}});}
+
+// PORTEFEUILLE
+function calcPerf(){const Rp=+document.getElementById('pf_Rp').value,sig=+document.getElementById('pf_sig').value,beta=+document.getElementById('pf_beta').value,Rf=+document.getElementById('pf_Rf').value,Rm=+document.getElementById('pf_Rm').value;const sh=(Rp-Rf)/sig,tr=(Rp-Rf)/beta,al=Rp-(Rf+beta*(Rm-Rf));const d=document.getElementById('res-pf');d.style.display='block';d.innerHTML=row('Sharpe',f(sh,4),(sh>0?'pos':'neg'))+row('Treynor',f(tr,4),(tr>0?'pos':'neg'))+row('Alpha',f(al,4)+'%',(al>0?'pos':'neg'))+row('Interprétation',al>0?'Surperformance vs MEDAF':'Sous-performance vs MEDAF');dc('smlChart');const bs=[0,.25,.5,.75,1,1.25,1.5,1.75,2];const ctx=document.getElementById('smlChart').getContext('2d');charts['smlChart']=new Chart(ctx,{type:'scatter',data:{datasets:[{label:'SML',data:bs.map(b=>({x:b,y:Rf+b*(Rm-Rf)})),type:'line',borderColor:'#58a6ff',pointRadius:0,showLine:true,borderDash:[5,5]},{label:currentTicker,data:[{x:beta,y:Rp}],backgroundColor:al>0?'#3fb950':'#f85149',pointRadius:9}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8b949e'}}},scales:{x:{title:{display:true,text:'β',color:'#6e7681'},ticks:{color:'#8b949e'},grid:{color:'#21262d'}},y:{title:{display:true,text:'Rendement (%)',color:'#6e7681'},ticks:{color:'#8b949e',callback:v=>v+'%'},grid:{color:'#21262d'}}}}});}
+function buildCompare(){const Rf=MD.meta.rf,Rm=MD.meta.rm;dc('compareChart');const labs=[],shs=[],als=[];const tBody=document.getElementById('compareTableBody');tBody.innerHTML='';Object.entries(MD.stocks).forEach(([k,s])=>{const sh=(s.return6m-Rf)/s.volatility,tr=(s.return6m-Rf)/s.beta,al=s.return6m-(Rf+s.beta*(Rm-Rf));labs.push(k.replace('.PA',''));shs.push(parseFloat(f(sh,3)));als.push(parseFloat(f(al,3)));tBody.innerHTML+=`<tr><td style="color:var(--blue)">${k.replace('.PA','')}</td><td>${f(s.return6m,2)}%</td><td>${f(s.volatility,2)}%</td><td>${f(s.beta,3)}</td><td class="${sh>0?'':'result-val neg'}">${f(sh,3)}</td><td class="${tr>0?'':'result-val neg'}">${f(tr,3)}</td><td class="${al>0?'result-val pos':'result-val neg'}">${f(al,3)}%</td></tr>`;});const ctx=document.getElementById('compareChart').getContext('2d');charts['compareChart']=new Chart(ctx,{type:'bar',data:{labels:labs,datasets:[{label:'Sharpe',data:shs,backgroundColor:'rgba(88,166,255,0.7)',borderWidth:0},{label:'Alpha (%)',data:als,backgroundColor:als.map(a=>a>=0?'rgba(63,185,80,0.7)':'rgba(248,81,73,0.7)'),borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8b949e'}}},scales:{x:{ticks:{color:'#8b949e',font:{size:10}}},y:{ticks:{color:'#8b949e'},grid:{color:'#21262d'}}}}});}
+
+// CARNET
+function buildCarnet(s){const spread=s.price*s.volatility/100/Math.sqrt(252)*0.4;const mid=s.price;const buys=[],sells=[];for(let i=0;i<7;i++){buys.push({p:parseFloat(f(mid-(i+1)*spread*0.45,2)),q:Math.floor((Math.random()*300+50)/10)*10});sells.push({p:parseFloat(f(mid+(i+1)*spread*0.45,2)),q:Math.floor((Math.random()*300+50)/10)*10});}const bb=buys[0].p,ba=sells[0].p;document.getElementById('carnet-stats').innerHTML=row('BID',f(bb,2)+' €','pos')+row('ASK',f(ba,2)+' €','neg')+row('Spread',f(ba-bb,2)+' € ('+f((ba-bb)/mid*100,3)+'%)')+row('Cours',f(mid,2)+' €');let h=`<div style="display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--border);border-radius:6px;overflow:hidden"><div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;padding:5px 8px;background:var(--bg3);font-size:10px;font-weight:600;text-transform:uppercase;color:#58e090">`;h+='<span>Qté</span><span>Achat</span><span>Ord.</span></div>';buys.forEach((b,i)=>{h+=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;padding:4px 8px;border-top:1px solid var(--border);font-family:var(--mono);font-size:12px;${i===0?'background:var(--blue-dim)':''}"><span>${b.q}</span><span style="color:#58e090">${f(b.p,2)}</span><span>${Math.ceil(b.q/50)}</span></div>`;});h+=`</div><div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;padding:5px 8px;background:var(--bg3);font-size:10px;font-weight:600;text-transform:uppercase;color:#f85149">`;h+='<span>Vente</span><span>Qté</span><span>Ord.</span></div>';sells.forEach((b,i)=>{h+=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;padding:4px 8px;border-top:1px solid var(--border);font-family:var(--mono);font-size:12px;${i===0?'background:var(--red-dim)':''}"><span style="color:#f85149">${f(b.p,2)}</span><span>${b.q}</span><span>${Math.ceil(b.q/50)}</span></div>`;});h+='</div></div>';document.getElementById('carnet-display').innerHTML=h;window._buys=buys;window._sells=sells;}
+function passOrdre(){const type=document.getElementById('ord_type').value,sens=document.getElementById('ord_sens').value,qty=+document.getElementById('ord_qty').value,lim=+document.getElementById('ord_prix').value,s=MD.stocks[currentTicker];const sells=window._sells||[],buys=window._buys||[];let msg='';if(type==='market'){const p=sens==='buy'?sells[0]?.p:buys[0]?.p;msg=`✓ Exécuté : ${qty} titres à ${f(p,2)} €`;}else if(type==='best'){const p=sens==='buy'?sells[0]?.p:buys[0]?.p;const exec=Math.min(qty,sens==='buy'?sells[0]?.q:buys[0]?.q);msg=`Meilleure limite → cours limité ${f(p,2)} €. ${exec} titres exécutés${exec<qty?', reste '+( qty-exec)+' en attente':''}.`;}else{if(sens==='buy'&&lim>=sells[0]?.p)msg=`✓ Cours limité ${f(lim,2)} € achat exécuté au marché (lim ≥ ASK)`;else if(sens==='buy')msg=`Ordre cours limité ${f(lim,2)} € achat → enregistré dans le carnet`;else if(lim<=buys[0]?.p)msg=`✓ Cours limité ${f(lim,2)} € vente exécuté (lim ≤ BID)`;else msg=`Ordre cours limité ${f(lim,2)} € vente → enregistré dans le carnet`;}document.getElementById('res-ordre').innerHTML=msg;}
+
+// FIXING
+function buildFixingInput(){const s=MD.stocks[currentTicker]||{price:9.754};const p=s.price;const sp=s.volatility?s.price*s.volatility/100/Math.sqrt(252)*2:0.02;const levels=[{p:f(p+sp*2,3),d:0,o:Math.floor(Math.random()*400+200)},{p:f(p+sp,3),d:Math.floor(Math.random()*200+100),o:Math.floor(Math.random()*400+300)},{p:f(p,3),d:Math.floor(Math.random()*600+400),o:Math.floor(Math.random()*400+200)},{p:f(p-sp,3),d:Math.floor(Math.random()*400+300),o:Math.floor(Math.random()*200+100)},{p:f(p-sp*2,3),d:Math.floor(Math.random()*300+100),o:0},{"p":'Au mieux',"d":Math.floor(Math.random()*200+100),"o":0},{"p":'Au mieux sell',"d":0,"o":Math.floor(Math.random()*200+100)}];let h='<table class="dt"><thead><tr><th>Cours limite</th><th>Demande (achat)</th><th>Offre (vente)</th></tr></thead><tbody>';levels.slice(0,5).forEach((l,i)=>{h+=`<tr><td style="font-family:var(--mono)">${l.p}</td><td><input type="number" id="fix_d${i}" value="${l.d}" style="width:100px;margin:0;font-size:12px"></td><td><input type="number" id="fix_o${i}" value="${l.o}" style="width:100px;margin:0;font-size:12px"></td></tr>`;});h+='</tbody></table>';document.getElementById('fixing-input-area').innerHTML=h;}
+function calcFixing(){const rows=[];for(let i=0;i<5;i++){const el=document.getElementById('fixing-input-area');if(!el)return;const d=+document.getElementById('fix_d'+i)?.value||0;const o=+document.getElementById('fix_o'+i)?.value||0;const p=document.querySelector('#fixing-input-area table tbody tr:nth-child('+(i+1)+') td:first-child').textContent;rows.push({p,d,o});}rows.sort((a,b)=>parseFloat(b.p)-parseFloat(a.p));let cumD=0;rows.forEach(r=>{cumD+=r.d;r.cumD=cumD;});let cumO=0;[...rows].reverse().forEach(r=>{cumO+=r.o;r.cumO=cumO;});let fixP='',fixV=0;rows.forEach(r=>{const vol=Math.min(r.cumD,r.cumO);if(vol>fixV){fixV=vol;fixP=r.p;}});let h='<table class="dt"><thead><tr><th>Prix</th><th>D</th><th>∑D</th><th>∑O</th><th>O</th><th>Volume</th></tr></thead><tbody>';rows.forEach(r=>{const vol=Math.min(r.cumD,r.cumO),isfix=r.p===fixP;h+=`<tr style="${isfix?'background:rgba(63,185,80,0.1)':''}"><td style="${isfix?'color:var(--green);font-weight:600':''}font-family:var(--mono)">${r.p}</td><td>${r.d||'—'}</td><td>${r.cumD}</td><td>${r.cumO||'—'}</td><td>${r.o||'—'}</td><td style="${isfix?'color:var(--green);font-weight:600':''}">${vol||'—'}</td></tr>`;});h+='</tbody></table>';document.getElementById('fixing-result').innerHTML=`<div style="margin-bottom:.75rem"><span style="color:var(--green);font-family:var(--mono);font-size:14px;font-weight:600">Cours d'ouverture : ${fixP} €</span><br><span style="color:var(--text2);font-size:12px">Volume échangé : ${fixV} titres</span></div>${h}`;}
+
+// ══════════════════════════════════════════════════════════════
+// INIT
+buildTickerStrip();
+buildStockGrid();
+buildDashboard();
+setTimeout(()=>{initOATTable();},100);
+</script>
+</body>
+</html>
